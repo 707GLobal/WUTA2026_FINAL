@@ -1,0 +1,10 @@
+[submodule "WUTA-FSD"]
+	path = WUTA-FSD
+	url = https://github.com/GaoMingHa0/WUTA-FSD.git
+	branch = 小登测试
+[submodule "humble-chcnav-cgi_ros2pkg"]
+	path = humble-chcnav-cgi_ros2pkg
+	url = https://github.com/707GLobal/humble-chcnav-cgi_ros2pkg.git
+[submodule "zlgcan_bridge"]
+	path = zlgcan_bridge
+	url = https://github.com/707GLobal/zlgcan_bridge.git
