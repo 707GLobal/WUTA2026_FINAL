@@ -1,0 +1,9 @@
+# Derived vehicle TF for ZED 2i mounting link; metres, quaternion xyzw.
+# base_link: rear axle center, x forward, y left, z up.
+# rslidar: 2.33 m ahead, same y/z and axes as base_link (user confirmed).
+# Derived from config/camera_lidar.yaml (2026-09-13 calibration) and ZED 2i URDF:
+# zed_camera_link -> zed_left_camera_optical_frame has xyz [-0.01, 0.06, 0.015]
+# and rpy [-pi/2, 0, -pi/2]. Keep in sync if that URDF or calibration changes.
+# Chain gives base_link -> rslidar xyz [2.33, 0, 0] to numerical precision.
+translation: [0.672897441073, -0.061631385726, 1.031499915026]
+quaternion: [0.012868092578, -0.009645382346, 0.005180829135, 0.999857258714]

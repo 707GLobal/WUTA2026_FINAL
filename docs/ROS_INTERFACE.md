@@ -1,0 +1,110 @@
+# 当前核心 ROS 与 CAN 接口
+
+> 核对：2026-10-12。以下是 `start_full_fsd.sh` 全车模式的核心契约，非全部调试话题枚举。话题可配置或 remap 时，以实际启动配置为准。
+
+## 1. 感知、定位、建图和控制
+
+类型简写均指 `包/msg/类型`。
+
+| Topic | 类型 | 发布者 → 消费者 |
+| --- | --- | --- |
+| `/rslidar_points` | sensor_msgs/PointCloud2 | M1 → LiDAR 检测、融合、自检、显示 |
+| `/zed/zed_node/rgb/image_rect_color` | sensor_msgs/Image | ZED → 相机检测、任务自检 |
+| `/zed/zed_node/depth/depth_registered` | sensor_msgs/Image | ZED → 双目适配 |
+| `/zed/zed_node/rgb/camera_info` | sensor_msgs/CameraInfo | ZED → 双目适配 |
+| `/camera/yolo/cones` | wuta_msgs/CameraConeDetectionArray | YOLO/LW-DETR → 双目适配 |
+| `/camera/yolo/image_annotated` | sensor_msgs/Image | 相机检测 → 显示 |
+| `/perception/camera/cones` | wuta_msgs/CameraConeDetectionArray | 双目适配 → 后融合 |
+| `/perception/camera/camera_info` | sensor_msgs/CameraInfo | 双目适配 → 后融合 |
+| `/perception/lidar/cones_raw` | wuta_msgs/ConeArray | LiDAR 检测 → 后融合 |
+| `/perception/fused/cones` | wuta_msgs/ConeArray | 后融合 → 建图（原订阅 `/perception/lidar/cones` 被 remap）及显示 |
+| `/perception/fusion/status` | std_msgs/String | 后融合 → 调试工具，内容为 JSON |
+| `/chcnav/odometry` | nav_msgs/Odometry | 华测 FSD 桥 → EKF、任务自检 |
+| `/chcnav/velocity` | geometry_msgs/TwistStamped | 华测 FSD 桥 → 控制器、规划记录 |
+| `/odometry/filtered` | nav_msgs/Odometry | EKF → 定位管理 |
+| `/localization/pose` | geometry_msgs/PoseStamped | 定位管理 → 建图、边界、规划、控制、任务机、显示 |
+| `/system/localization_ready` | std_msgs/Bool | 定位管理 → 任务机、规划 |
+| `/system/localization_confidence` | std_msgs/Float32 | 定位管理 → 任务机、规划 |
+| `/mapping/cone_map` | wuta_msgs/ConeMap | 建图 → 边界、任务机、显示；5 Hz |
+| `/planning/centerline` | autoware_msgs/Lane | 边界 → 规划、显示 |
+| `/planning/global_centerline_ready` | std_msgs/Bool | 边界 → 任务机、规划 |
+| `/planning/path_confidence` | std_msgs/Float32 | 边界 → 规划 |
+| `/planning/final_waypoints` | autoware_msgs/Lane | 规划 → 控制、显示 |
+| `/control/command` | autoware_msgs/Command | 控制 → CAN 接口、规划记录；默认控制回路50 Hz |
+
+`/localization/velocity` 出现在旧仿真和显示配置中，但不是当前控制器的速度订阅。显示桥默认 velocity 仍指向该旧话题，接入实车速度显示时需核对/调整显示配置。
+
+## 2. 任务与故障
+
+| Topic | 类型 | 发布者 → 消费者 / 语义 |
+| --- | --- | --- |
+| `/system/mission_state` | wuta_msgs/MissionState | 唯一发布者任务机 → 各算法节点、CAN、监控；10 Hz |
+| `/system/lap_count` | std_msgs/UInt32 | 当前唯一发布者任务机 → 建图、规划；正式定位过线计圈 |
+| `/system/mission_mode_cmd` | std_msgs/String | CAN → 任务机；trackdrive/skidpad/acceleration/inspection/ebs_test |
+| `/system/start_command` | std_msgs/Bool | CAN → 任务机；RES GO 变化沿，非周期自动发车 |
+| `/system/emergency` | std_msgs/Bool | CAN 或任务机自检 → 任务机/控制器；急停锁存 |
+| `/system/devices_inspection` | wuta_msgs/DevicesInspection | 任务机 → CAN；ok + failures |
+| `/system/mission_complete` | std_msgs/Bool | 控制器 → 任务机；Trackdrive 由正式圈次完成 |
+| `/ndt/map_ready` | std_msgs/Bool | 可选 map_saver → 任务机；当前默认不依赖 |
+
+任务机不订阅旧 `/system/lidar_ready`，而以 M1 点云接收心跳判断雷达在线。不要为当前启动链补造该话题。
+
+## 3. 消息契约
+
+定义目录：`WUTA-FSD/ros2_ws/src/common/{wuta_msgs,autoware_msgs}/msg`。
+
+| 消息 | 字段与解释 |
+| --- | --- |
+| Cone | position、color（默认4）、confidence；位置含义由数组 header.frame_id 决定 |
+| ConeArray | Header + Cone[]；保留采样时间与坐标帧 |
+| ConeMap | Header、red/blue/yellow/orange/unknown_cones、is_closed；目前没有地图质量结论字段 |
+| CameraConeDetection | detection_id、bbox_xyxy[4]、color_probabilities[5]、confidence、position_valid、position、position_covariance[9] |
+| CameraConeDetectionArray | Header + detections；曝光时间、矫正后左目光学帧 |
+| MissionState | Header、state、mission_mode、localization_mode、description；description 含门控诊断，监控依赖其格式 |
+| DevicesInspection | bool ok、string[] failures |
+| Lane / Waypoint | Header + waypoints；每个航点含 PoseStamped 与 TwistStamped，速度剖面在 twist 中 |
+| Command | Header、speed（m/s）、angle（前轮角度，deg）、throttle_brake（[-1,1]，正驱动/负制动）；CAN Signal1 取开度，非 speed |
+
+颜色固定：**RED=0、YELLOW=1、BLUE=2、ORANGE=3、UNKNOWN=4**。相机概率顺序同号、长度5；建图边界红左/蓝右，黄/橙不进入边界配对。旧整数颜色地图、旧 rosbag 和旧消息 install 需显式迁移或重录重建。
+
+状态编号：IDLE=0、READY=1、INSPECTION=2、EXPLORE=3、MAPPING_DONE=4、RACE=5、FINISH=6、EMERGENCY=7。任务模式：TRACKDRIVE=0、SKIDPAD=1、ACCELERATION=2、INSPECTION=3、EBS_TEST=4。定位模式：LOC_KISS_ICP=0（当前为 EKF 分支）、LOC_NDT=1。
+
+## 4. 坐标、时间与 QoS
+
+实车 TF 主链：`map -> odom -> base_link -> zed_camera_link -> 相机光学帧 -> rslidar`。根脚本发布同原点 map→odom 和车辆→ZED 静态外参；EKF 唯一发布 odom→base_link；ZED 车辆动态 TF 在本入口关闭。相机雷达外参定义 `p_camera = R p_lidar + t`，静态发布父相机光学帧、子雷达帧。
+
+华测桥发布 odom/base_link 里程计和 base_link 下速度，不发布 TF。定位管理将 EKF pose 标记为 map，成立条件是上述 map/odom 同原点静态关系；若改用非零 map→odom，应同时调整转换实现。
+
+检测和融合保留传感器采样时间；建图按采样时间查 TF，缺失时排队重试。不能用最新车辆位姿直接转换历史检测。相机为曝光时间，框坐标属于矫正后左图，注册深度以米解释。
+
+普通 `create_publisher/subscription(...,10)` 为 Reliable/Volatile/depth10；传感器点云、图像等输入常用 SensorDataQoS。正式 lap_count、global_centerline_ready、path_confidence 使用 Reliable/Transient Local/depth1；CAN/任务机急停使用同类锁存 QoS，GO 不锁存。接入时用 `ros2 topic info -v` 检查双方，实际频率取决于设备与运行负载。
+
+## 5. CAN 当前实现
+
+| 帧 | 配置默认 | 当前作用 |
+| --- | --- | --- |
+| 控制 | 0x210（528），周期0.1 s，同时受回调发送影响 | Signal1 纵向、Signal2 转向为两字节大端；Signal3 在线、Signal4 完成 |
+| 心跳 | 0x301（769），周期0.05 s，DLC1 | Data[0] 随设备自检 ok 为1/0 |
+| VCU 输入 | 0x501（1281） | 任务模式；当前模式周期重发，供晚启动任务机同步 |
+| RES 输入 | 0x1E4（484） | 首字节0x13 GO、0x10急停、0x11上线；GO只在状态变化沿发布 |
+
+CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧，之后按最近一次控制消息发送，不包含命令超时保护或标定表映射。最大转角读取 `steer.max_steer_angle`，总启动检查与控制器的 `vehicle.max_steer_angle` 核对。当前 CAN 车速发布代码未启用，闭环速度来自华测。
+
+标定与报文格式以 `system/can_interface/config/can_interface.yaml`、`src/can_interface.cpp` 及 `docs_for_can` 协议为准；ZLG 桥提供硬件传输，不负责算法任务状态。ROS 归零不等同于已经验证硬件制动。
+
+## 6. 可视化与可选定位
+
+算法 MarkerArray：`/mapping/cone_map_viz`、`/planning/centerline_viz`、`/planning/final_waypoints_viz`、`/planning/driven_trajectory_viz`、`/control/target_viz`。当前硬件不保证发布显示配置中的原生 fused/guided-clusters marker，默认 bridge 从真实算法消息生成显示。
+
+可选 KISS/NDT：`/kiss/odometry`、`/kiss/odometry_sanitized`、`/ndt/pose`、`/ndt/path`、`/ndt/aligned_cloud`、`/initialpose`。源码中部分输入仍为 `/hesai/pandar`，当前 M1 部署若启用必须先适配。它们不属于默认实车运行链。
+
+## 任务诊断兼容约定
+
+`/system/mission_state` 的消息结构不变。`description` 保留 lap、mode_selected、
+go_count、go_pending、lidar_ready、localization_ready 及地图/定位/RACE字段，
+新增 `diag_version=2` 和 `wait=<原因列表或none>`。等待原因由任务机提供，展示端
+不维护第二套门控规则；旧版本或字段缺失时显示未知。
+原因值包括 lidar、localization、mode、go、map_closed、map_quality、centerline、
+pose、confidence、ndt、lap、emergency、finished。
+`mission_monitor` 只订阅状态和自检，不发布赛项、GO或控制指令。状态事件统一进入
+manager.log，观察到的实际赛项写 mission_history.json。目录与归档见 [LOGGING](LOGGING.md)。

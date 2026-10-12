@@ -1,0 +1,5 @@
+# Measured pose of the ZED camera link in the vehicle base_link frame.
+# Translation is metres. Quaternion order is x, y, z, w.
+# Copy to base_to_zed.yaml and replace every null with measured values.
+translation: [null, null, null]
+quaternion: [null, null, null, null]

@@ -1,0 +1,27 @@
+# Topics must match the FSD graph. Empty strings disable optional displays/inputs.
+fixed_frame: map
+target_frame: base_link
+frame_rate: 30
+stale_seconds: 1.0
+trajectory_max_points: 5000
+trajectory_min_distance: 0.05
+trajectory_max_step: 5.0
+topics:
+  camera_image: /camera/yolo/image_annotated
+  raw_lidar: /rslidar_points
+  guided_clusters: /perception/fused/guided_clusters_viz
+  fused_markers: /perception/fused/cones_viz
+  map_markers: /mapping/cone_map_viz
+  centerline_markers: /planning/centerline_viz
+  path_markers: /planning/final_waypoints_viz
+  trajectory_markers: /planning/driven_trajectory_viz
+  control_target: /control/target_viz
+  # bridge mode converts these algorithm outputs into independent display topics.
+  fused_cones: /perception/fused/cones
+  cone_map: /mapping/cone_map
+  centerline: /planning/centerline
+  final_waypoints: /planning/final_waypoints
+  pose: /localization/pose
+  velocity: /localization/velocity
+  # Used only if velocity_type=odometry; no simulator-specific input.
+  odometry: /localization/odometry

@@ -1,0 +1,85 @@
+# 部署与运行
+
+> 2026-10-12；本页命令供开发者执行。本次文档整理未启动实车、发车或改动运行配置。
+
+## 1. 环境与文件
+
+ROS 2 Humble、系统Python3.10、colcon/ament、PCL/Eigen/tf2、RViz及包内声明依赖；相机推理还需匹配 GPU/CUDA/TensorRT 与 engine 的依赖。构建产物不可跨机器直接视为可用。
+
+| 项目 | 当前默认路径 / 来源 |
+| --- | --- |
+| ZED overlay | `/home/wuta/WUTA/zed/install/setup.bash`；ZED_SETUP可覆盖 |
+| M1 overlay | `/home/wuta/WUTA/rslidar_sdk/install/setup.bash`；RSLIDAR_SETUP可覆盖 |
+| 推理依赖 | `/home/wuta/lyx/WUTA/.hardware_deps`；HARDWARE_DEPS可覆盖 |
+| 外部模拟器 | `/home/wuta/lyx/WUTA/WUTA-SIM/install/setup.bash`；SIM_SETUP可覆盖 |
+| TensorRT模型 | `models/yolov8sp2-int8.engine`，1280×768；由相机模块配置相对路径解析 |
+| 相机雷达标定 | `config/camera_lidar.yaml`，本地部署文件 |
+| 车辆ZED外参 | `config/base_to_zed.yaml`，后轴中心base_link；示例仅供填充 |
+| 惯导 / CAN / 雷达网络 | `/dev/ttyUSB0` / can0 / enp8s0，192.168.1.102/24 |
+
+本机文件存在不代表Git可提供部署资产；模型、标定、驱动、设备权限和环境需逐机检查。相机及雷达支架变化后重新标定。
+
+## 2. 配置来源
+
+实际参数来自 `WUTA-FSD/ros2_ws/src` 下各包 config；感知入口为 `fusion_modules_hardware.launch.py`。`field_tuning.yaml` 和旧根统一 YAML不是本入口参数总入口。修改源码 YAML并重启对应节点生效；修改消息或节点源码应重建。
+
+```bash
+cd /home/wuta/WUTA2026_FINAL
+./start_full_fsd.sh --print-config
+```
+
+该命令只解析/检查配置并输出 JSON，不连接硬件。检查控制/CAN最大转角一致、感知话题链、自检输入、有限值与NDT关闭；它不能替代模型存在、设备或全部参数合法性检查。
+
+显式覆盖支持 `--controller-config=FILE`、`--can-config=FILE`、`--model=FILE`、`--calibration=FILE`、`--base-to-zed=FILE` 和 `--ins-port=...`。模型覆盖不自动同步引擎输入尺寸；需核对相机配置。CAN_IFACE环境变量可选接口，`--reuse-can`已停用。
+
+## 3. 构建与实车启动
+
+```bash
+./start_fsd_manager.sh --menu       # 推荐：单终端检查、状态与日志界面
+./start_fsd_manager.sh --check      # 管理器并行只读预检查
+./start_full_fsd.sh --check
+./start_full_fsd.sh --build-only
+./start_full_fsd.sh --skip-build --no-rviz
+./start_full_fsd.sh --status
+./start_full_fsd.sh --stop
+```
+
+`--check` 检查部署文件、设备/网络和已有资源，失败原因以输出为准。`--build-only` 构建华测msg_interfaces/chcnav、当前FSD各包、ZLG桥和显示包。默认自动构建仅在关键setup缺失时触发，已有install不保证源码修改已重建。
+
+普通启动每次重连ZLG桥，可能停止同一CAN接口的旧桥，需要交互sudo；进入编排后依次等待点云、图像、融合、惯导和定位首帧，最终确认任务状态。进程存活、收到消息、READY和实际发车是不同状态。
+
+RViz默认开启，无图形桌面用 `--no-rviz`；关闭RViz会触发全栈进程监管停止。只看传感器/感知可使用 `--sensor-only`，仍连接真实CAN桥和传感器，但不启动控制链。`--reuse-ins`复用外部惯导并验证输出，退出时保留外部进程。
+
+当前脚本不会伪造VCU选择或RES GO。运行先写 `logs/pending/<运行时间>/`，结束并关闭文件后按实际赛项归档到 `logs/<赛项>/<运行时间>/`。未选赛项保留 pending，多赛项归入 multi_mission，传感器模式归入 sensor_only。`manager.log` 收集启动和任务诊断，模块输出在 modules，轨迹在 jrajectory，配置副本在 configs；未运行时管理日志在 logs/sessions。详见 [运行日志](LOGGING.md)。`.runtime/full_fsd`保存监管状态。Ctrl-C按脚本清理本次进程。
+
+## 4. 运行检查
+
+先source正确overlay，在单独终端只读检查：
+
+```bash
+source /opt/ros/humble/setup.bash
+source humble-chcnav-cgi_ros2pkg/install/setup.bash
+source WUTA-FSD/ros2_ws/install/setup.bash
+ros2 node list
+ros2 topic list -t
+ros2 topic info -v /chcnav/velocity
+ros2 topic echo --once /system/mission_state
+ros2 topic echo --once /system/devices_inspection
+ros2 run tf2_ros tf2_echo map base_link
+```
+
+定位不ready时查华测→EKF→定位输出；地图为空时查融合颜色、时间、map←rslidar TF和最少命中；无路径时查红蓝数量、边界与方向；无法发车查自检、模式、GO是否已消费与状态门槛。监控超过3 s无状态广播会提示，具体信息见 `manager.log`。
+
+## 5. 仿真验证
+
+```bash
+./start_wuta_sim_validation.sh --mission acceleration --duration 40 --speed 2
+./start_wuta_sim_validation.sh --mission trackdrive --duration 60 --speed 4
+./run_wuta_sim_regression.sh
+```
+
+默认ROS_DOMAIN_ID=157、ROS_LOCALHOST_ONLY=1，允许域101–232，通过项目域锁避免重入；用WUTA_SIM_DOMAIN覆盖，不能用硬件域0。source顺序是Humble→外部SIM→本仓库FSD local_setup。模拟器构建和源码维护属于外部依赖，不应在本仓库虚构WUTA-SIM目录。
+
+回归覆盖分赛项PID直线、噪声、trackdrive片段、速度断流、定位断流、空路径、NaN路径与急停；单次记录在 `logs/<赛项>/<运行时间>/`（元信息标记 simulation），包含配置、赛道副本、遥测、rosbag、节点日志与summary。批次索引和 results/report 保存到 `logs/sessions/batch_*`，场景链接指向赛项运行目录；单次 summary/telemetry/rosbag 在 validation 子目录。需要检查每个场景结果，不能只依据汇总脚本退出码。
+
+详见 [仿真专题](WUTA_SIM验证与启动.md)。真实YOLO、真实CAN、标定、EBS制动和完整多圈不在上述短时回归的证明范围内。

@@ -1,0 +1,74 @@
+[
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/localization/kiss-icp/ros/config/config.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/localization/kiss_icp_wrapper/config/kiss_icp_hesai128.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/localization/localization_manager/config/ekf.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/localization/ndt_localization/config/ndt_localization.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/localization/robot_localization/params/dual_ekf_navsat_example.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/localization/robot_localization/params/ekf.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/localization/robot_localization/params/navsat_transform.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/localization/robot_localization/params/ukf.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/mapping/cone_map_builder/config/cone_map_builder.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/perception/detection_fusion/config/fusion.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/perception/lidar_detection/config/lidar_detection.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/planning/boundary_detector/config/boundary_detector.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/planning/path_generator/config/path_generator.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/system/can_interface/config/can_interface.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/system/mission_manager/config/mission_manager.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/vehicle_control_calibration.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/config/vehicle_control_calibration.yaml",
+    "ok": true
+  },
+  {
+    "file": "/home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws/src/control/controller/config/controller.yaml",
+    "ok": true
+  }
+]

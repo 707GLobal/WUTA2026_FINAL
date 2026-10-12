@@ -1,0 +1,8 @@
+<library path="fsd_safe_image">
+  <class name="fsd_rviz_plugins/DashboardImage" type="fsd_rviz_plugins::DashboardImage" base_class_type="rviz_common::Display">
+    <description>Safe Image docked left of a shared LiDAR and planning viewport.</description>
+  </class>
+  <class name="fsd_rviz_plugins/SafeImage" type="fsd_rviz_plugins::SafeImage" base_class_type="rviz_common::Display">
+    <description>Standard Image rendering with safe repeated disconnect on shutdown.</description>
+  </class>
+</library>

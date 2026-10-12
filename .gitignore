@@ -1,0 +1,27 @@
+/.runtime/
+/logs/
+/models/*.engine
+/config/camera_lidar.yaml
+/fsd_startup/__pycache__/
+/fsd_startup/sudo_askpass.local.sh
+
+# Python and tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Root build outputs, logs, and local rollback backups
+/build/
+/install/
+/log/
+/.rollback_backups/
+/symlink_install_manifest.txt
+
+# Visualization validation logs
+/fsd-visualization-code/validation/*.log
+
+# Raw replay data is local; keep analysis documents only
+/docs/chcnav_velocity_replay_*.csv
