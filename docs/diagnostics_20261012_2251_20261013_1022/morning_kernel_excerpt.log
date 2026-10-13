@@ -1,0 +1,17 @@
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: igb 0000:08:00.0 enp8s0: renamed from eth2
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 2-5: new SuperSpeed USB device number 2 using xhci_hcd
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 2-5: New USB device found, idVendor=2b03, idProduct=f880, bcdDevice= 1.00
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 2-5: New USB device strings: Mfr=1, Product=2, SerialNumber=4
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 2-5: Product: ZED 2i
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 2-5: Manufacturer: Technologies, Inc.
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 2-5: SerialNumber: OV0001
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 1-6.2: new full-speed USB device number 6 using xhci_hcd
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 1-6.2: New USB device found, idVendor=2b03, idProduct=f881, bcdDevice= 3.09
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 1-6.2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 1-6.2: Product: ZED-2i HID INTERFACE
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 1-6.2: Manufacturer: STEREOLABS
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 1-6.2: SerialNumber: 34409832
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usb 2-5: Found UVC 1.10 device ZED 2i (2b03:f880)
+2026-10-13T10:20:48+0800 wuta-Nuvo-7000-Series kernel: usbcore: registered new interface driver uvcvideo
+2026-10-13T10:22:38+0800 wuta-Nuvo-7000-Series kernel: igb 0000:08:00.0 enp8s0: igb: enp8s0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+2026-10-13T10:22:48+0800 wuta-Nuvo-7000-Series kernel: usb 1-6.2: reset full-speed USB device number 6 using xhci_hcd

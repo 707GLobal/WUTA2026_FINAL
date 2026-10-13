@@ -14,7 +14,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.theme import Theme
 from textual.containers import Horizontal, Vertical
-from textual.widgets import DataTable, Input, OptionList, RichLog, Select, Static
+from textual.widgets import DataTable, OptionList, RichLog, Select, Static
 from textual.widgets.option_list import Option
 
 from checks import CHECKS
@@ -25,8 +25,6 @@ VIEWS = [('checks', '01  启动检查'), ('vehicle', '02  车辆状态'),
          ('modules', '05  组件日志'), ('config', '06  模块配置')]
 STYLES = {'ok': '#a6e3a1', 'error': '#f38ba8', 'warn': '#f9e2af',
           'info': '#89b4fa', 'title': 'bold #cba6f7', 'muted': '#a6adc8'}
-COMMANDS = {'/start': 's', '/check': 'c', '/permissions': 'p', '/stop': 'x', '/quit': 'q',
-            's': 's', 'c': 'c', 'p': 'p', 'x': 'x', 'q': 'q'}
 
 
 def summary(detail):
@@ -72,9 +70,6 @@ class FsdApp(App):
     #detail { height: 1fr; border: round #45475a; background: #1e1e2e; color: #cdd6f4; padding: 0 1; border-title-color: #a6adc8; }
     #detail:focus { border: round #89b4fa; }
     #actions { height: 2; margin: 1 2 0 2; color: #94e2d5; }
-    #command { margin: 1 2 0 2; height: 3; border: round #45475a; background: #181825; color: #cdd6f4; }
-    #command:focus { border: round #cba6f7; background: #181825; }
-    #command > .input--placeholder { color: #a6adc8; text-style: dim; }
     #keys { height: 1; padding: 0 2; background: #11111b; color: #a6adc8; text-style: dim; }
     Select, SelectCurrent, SelectOverlay { background: #181825; color: #cdd6f4; border: round #45475a; }
     * { scrollbar-background: #181825; scrollbar-color: #45475a; scrollbar-color-active: #89b4fa; }
@@ -83,7 +78,7 @@ class FsdApp(App):
                 Binding('p', 'operate("p")', '权限'), Binding('x', 'operate("x")', '停止'),
                 Binding('q', 'quit', '清理退出'), Binding('ctrl+q', 'quit', show=False, priority=True),
                 Binding('ctrl+c', 'operate("x")', show=False, priority=True),
-                Binding('space', 'pause_log', '暂停日志'), Binding('/', 'command_focus', '命令')]
+                Binding('space', 'pause_log', '暂停日志')]
 
     def __init__(self, manager, *, auto_start=False, requested=None, telemetry=True, color=True):
         # Color is an explicit launcher preference, independent of inherited NO_COLOR.
@@ -102,9 +97,7 @@ class FsdApp(App):
             success='#a6e3a1', warning='#f9e2af', error='#f38ba8', dark=True, ansi=False,
             variables={'border': '#45475a', 'border-blurred': '#313244',
                        'block-cursor-background': '#45475a', 'block-cursor-foreground': '#cdd6f4',
-                       'block-cursor-text-style': 'bold', 'scrollbar-corner-color': '#181825',
-                       'input-cursor-background': '#cba6f7', 'input-cursor-foreground': '#1e1e2e',
-                       'input-selection-background': '#45475a', 'input-selection-foreground': '#cdd6f4'}))
+                       'block-cursor-text-style': 'bold', 'scrollbar-corner-color': '#181825'}))
         self.theme = 'fsd-mocha'
         self.manager = manager
         self.manager.silent = True
@@ -137,8 +130,7 @@ class FsdApp(App):
                 yield Select([], prompt='选择组件日志', id='component')
                 yield RichLog(id='detail', wrap=True, markup=False, max_lines=3000, min_width=1)
         yield Static('C 检查   S 启动   P 权限   X 停止   Q 清理退出', id='actions')
-        yield Input(placeholder='› /check  /start  /permissions  /stop  /quit   或 /vehicle /sensors /logs', id='command')
-        yield Static('↑↓ 选择   Enter 打开   Tab 切换区域   / 输入命令   Space 暂停日志', id='keys')
+        yield Static('↑↓ 选择   Enter 打开   Tab 切换区域   Space 暂停日志', id='keys')
 
     def on_mount(self):
         table = self.query_one('#check-table', DataTable)
@@ -167,8 +159,7 @@ class FsdApp(App):
         self.query_one('#check-table').styles.height = 7 if compact else 10
         self.query_one('#side-note').display = not compact
         self.query_one('#actions').styles.margin = (0 if compact else 1, 2, 0, 2)
-        self.query_one('#command').styles.margin = (0 if compact else 1, 2, 0, 2)
-        self.query_one('#sidebar').display = event.size.width >= 100
+        self.query_one('#sidebar').styles.width = 23 if event.size.width >= 100 else 18
 
     def manager_loop(self):
         """Serialize start/check/cleanup and pumping; terminal rendering stays responsive."""
@@ -178,7 +169,7 @@ class FsdApp(App):
                 self.manager.recover()
                 if self.use_telemetry:
                     self.manager.telemetry()
-                self.manager.emit('终端已就绪。选择检查，或输入 /check；错误会保留在当前界面。', 'title')
+                self.manager.emit('终端已就绪。按 C 检查；Tab 切换区域，方向键选择、Enter 打开页面。', 'title')
                 if self.auto_start:
                     self.manager.start()
             except Exception:
@@ -220,28 +211,9 @@ class FsdApp(App):
     def action_quit(self):
         self.action_operate('q')
 
-    def action_command_focus(self):
-        command = self.query_one('#command', Input)
-        command.focus()
-        if not command.value:
-            command.value = '/'
-            command.cursor_position = 1
-
     def action_pause_log(self):
         self.paused = not self.paused
         self.last_content = None
-
-    def on_input_submitted(self, event: Input.Submitted):
-        command = event.value.strip().lower()
-        event.input.value = ''
-        if command in COMMANDS:
-            self.action_operate(COMMANDS[command])
-        elif command.lstrip('/') in dict(VIEWS):
-            self.change_view(command.lstrip('/'))
-        elif command in ('/pause', '/resume'):
-            self.paused = command == '/pause'
-        else:
-            self.notify('命令：/check /start /permissions /stop /quit /vehicle /sensors /logs', severity='warning')
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected):
         self.change_view(event.option.id)

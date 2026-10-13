@@ -1,5 +1,6 @@
 # 当前核心 ROS 与 CAN 接口
 
+
 > 核对：2026-10-13（同步10月12日工作）。以下是 `start_full_fsd.sh` 全车模式的核心契约，非全部调试话题枚举。话题可配置或 remap 时，以实际启动配置为准。
 
 ## 1. 感知、定位、建图和控制
@@ -114,6 +115,12 @@ pose、confidence、ndt、lap、emergency、finished。
 `mission_monitor` 只订阅状态和自检，不发布赛项、GO或控制指令。状态事件统一进入
 manager.log，观察到的实际赛项写 mission_history.json。目录与归档见 [LOGGING](LOGGING.md)。
 
+
 ## 模式会话缓存
 
 ZLG桥将当前会话的有效VCU模式写到`/run/zlgcan_bridge`。CAN接口默认启用`mode_cache`，等待2秒恢复模式，实时模式优先；仅模式可恢复，RES GO/急停不缓存。默认`max_age_sec=0`不按时间过期，仍验证桥PID、启动时间、接口及会话身份；缓存不代表VCU持续在线。
+
+
+### 固定路径的启动参考（2026-10-13）
+
+`path_generator`的acceleration/skidpad/ebs均支持`anchor_frame=start_pose|map`。start_pose是规划内部冻结的二维参考，不新增TF边或pose发布者；YAML的X前、Y左、yaw=0沿启动车头。最终Lane和planned日志保持map，路径速度仍为沿路径目标速度。公共华测ENU/车体速度及map→odom同原点关系不变。Trackdrive使用真实map锥桶中心线，不再次应用启动旋转。

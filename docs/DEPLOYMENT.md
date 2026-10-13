@@ -1,6 +1,7 @@
 # 部署与运行
 
-> 2026-10-13复核（同步10月12日工作）；本页命令供开发者执行。本次文档整理未启动实车、发车或改动运行配置。
+
+> 2026-10-13复核（同步当日工作）；本页命令供开发者执行。本次文档整理未启动实车、发车或改动运行配置。
 
 ## 1. 环境与文件
 
@@ -50,7 +51,7 @@ cd /home/wuta/WUTA2026_FINAL
 
 管理器独立预检查并行，点云/图像/惯导首帧也并行；融合、定位及下游节点仍按依赖推进。CLI读取ROS话题，不额外读取串口字节。进程存活、收到首帧、持续在线、READY和实际发车是不同状态。
 
-默认纯键盘Textual界面，X停止、Q清理退出；失败保留界面，可修复后重试。终端背景沿用用户配置。GNOME登录自启配置和完整快捷键见[启动包说明](../fsd_startup/README.md)。
+默认纯键盘Textual界面，X停止、Q清理退出；失败保留界面，可修复后重试。使用Catppuccin Mocha主题，无命令输入框或数字页面快捷键；Tab切换区域，方向键与Enter选择页面。GNOME登录自启配置和完整快捷键见[启动包说明](../fsd_startup/README.md)，维护方法见[开发指南](DEVELOPMENT.md#startup-development)。
 
 RViz默认开启，无图形桌面用 `--no-rviz`；关闭RViz会触发全栈进程监管停止。只看传感器/感知可使用 `--sensor-only`，仍连接真实CAN桥和传感器，但不启动控制链。`--reuse-ins`复用外部惯导并验证输出，退出时保留外部进程。
 
@@ -89,3 +90,10 @@ ros2 run tf2_ros tf2_echo map base_link
 回归覆盖分赛项PID直线、噪声、trackdrive片段、速度断流、定位断流、空路径、NaN路径与急停；单次记录在 `logs/<赛项>/<运行时间>/`（元信息标记 simulation），包含配置、赛道副本、遥测、rosbag、节点日志与summary。批次索引和 results/report 保存到 `logs/sessions/batch_*`，场景链接指向赛项运行目录；单次 summary/telemetry/rosbag 在 validation 子目录。需要检查每个场景结果，不能只依据汇总脚本退出码。
 
 详见 [仿真专题](WUTA_SIM验证与启动.md)。真实YOLO、真实CAN、标定、EBS制动和完整多圈不在上述短时回归的证明范围内。
+
+
+### 固定路径启动参考更新（2026-10-13）
+
+根全车入口仍读取`WUTA-FSD/ros2_ws/src/planning/path_generator/config/path_generator.yaml`。acceleration/skidpad/ebs当前anchor_frame均为start_pose，需重新构建path_generator并重启规划进程。Skidpad当前仍为U-turn测试，关闭u_turn_test.enabled才运行标准八字；新配置使用发车原点，不能直接配旧绝对地图锚点。Trackdrive地图/TF保持现有坐标策略。隔离回归：加载ROS及FSD install后用系统Python运行`tools/check_acceleration_start_pose.py`；不启动实车入口。
+
+今日源码调参和实车历史快照分开记录，见[今日工作记录](工作记录_2026-10-13.md)。本次不重新启动设备或重跑回归。

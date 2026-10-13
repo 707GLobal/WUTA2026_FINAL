@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / '.runtime/fsd_manager/ui_deps'))
 sys.path.insert(0, str(Path(__file__).parent))
 from manager import Manager
 from terminal_ui import FsdApp
-from textual.widgets import Button, DataTable, Input, OptionList
+from textual.widgets import Button, DataTable, Input, OptionList, RichLog
 
 
 def test_menu_keyboard_check_errors_views_and_exit(tmp_path):
@@ -26,6 +26,8 @@ def test_menu_keyboard_check_errors_views_and_exit(tmp_path):
             async with app.run_test(size=(110, 36)) as pilot:
                 await pilot.pause(.4)
                 assert not list(app.query(Button))
+                assert not list(app.query(Input))
+                assert not list(app.query('#command'))
                 assert app.no_color is False
                 await pilot.press('c')
                 for _ in range(30):
@@ -43,13 +45,17 @@ def test_menu_keyboard_check_errors_views_and_exit(tmp_path):
                 await pilot.press('enter')
                 assert app.selected_check == 'rt:sudo'
                 assert '待启动验证' in app.content()
-                await pilot.press('/')
-                command = app.query_one('#command', Input)
-                assert command.value == '/'
-                await pilot.press(*'sensors', 'enter')
+                await pilot.press('3')
+                assert app.view == 'checks'
+                await pilot.press('tab')
+                assert app.focused is app.query_one('#detail', RichLog)
+                await pilot.press('shift+tab', 'shift+tab')
+                assert app.focused is app.query_one('#views', OptionList)
+                await pilot.press('down', 'down', 'enter')
                 assert app.view == 'sensors'
                 assert not table.display
                 app.query_one('#views', OptionList).focus()
+                await pilot.press('home')
                 await pilot.press('down', 'enter')
                 assert app.view == 'vehicle'
                 app.change_view('logs')
@@ -60,7 +66,17 @@ def test_menu_keyboard_check_errors_views_and_exit(tmp_path):
                 assert app.query_one('#component').display
                 await pilot.resize_terminal(80, 24)
                 await pilot.pause(.2)
-                assert app.query_one('#command').region.bottom <= 24
+                assert app.query_one('#keys').region.bottom <= 24
+                await pilot.resize_terminal(65, 24)
+                await pilot.pause(.2)
+                assert app.query_one('#sidebar').display
+                for index, view in enumerate(['checks', 'vehicle', 'sensors', 'logs', 'modules', 'config']):
+                    app.query_one('#views', OptionList).focus()
+                    await pilot.press('home', *(['down'] * index), 'enter')
+                    assert app.view == view
+                app.query_one('#detail', RichLog).focus()
+                await pilot.press('tab')
+                assert app.focused is not None
                 app.query_one('#views', OptionList).focus()
                 await pilot.press('q')
                 for _ in range(30):

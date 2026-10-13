@@ -1,5 +1,6 @@
 # 按功能定位代码
 
+
 > 表内 FSD 路径均相对 `WUTA-FSD/ros2_ws/src/`，2026-10-13复核，同步10月12日工作树。
 
 | 功能 | 核心实现 | 配置 / 验证入口 |
@@ -28,7 +29,7 @@
 | 日志上下文 / 归档 | `fsd_startup/log_context.py`；`tools/run_logged.py`；说明见 [LOGGING](LOGGING.md) |
 | 任务诊断展示 | `tools/mission_diagnostics.py`；权威等待条件在 FSD mission_manager |
 | 实车编排 / 进程清理 | [start_full_fsd.sh](../start_full_fsd.sh) |
-| 纯键盘终端与自启 | `start_fsd_manager.sh`；`fsd_startup/{manager,terminal_ui,dashboard,runtime_checks}.py`；`autostart.sh` |
+| 纯键盘终端与自启 | `start_fsd_manager.sh`；`fsd_startup/{manager,terminal_ui,dashboard,runtime_checks}.py`；`autostart.sh`；[开发指南](DEVELOPMENT.md#startup-development) |
 | GNSS状态含义 | `tools/gnss_status.py`；任务门控在mission_manager，显示通过ROS订阅 |
 | 惯导分层诊断 | `temporary_ins_diagnostics.hpp`与华测parser/protocol/bridge内计数；[诊断记录](惯导临时诊断记录.md) |
 | CAN模式会话缓存 | `zlgcan_bridge/mode_cache.{c,h}`；`system/can_interface/src/mode_cache.cpp`及`mode_cache`配置 |
@@ -42,6 +43,6 @@
 | 提权进程监管 / CAN 重连 / 串口保护测试 | `tools/run_privileged_group.py`、`test_privileged_group.py`、`test_can_reconnect.py`、`test_chcnav_serial_guard.py` |
 | 仿真组织与车辆适配 | `tools/run_wuta_sim_validation.py`、`tools/wuta_sim_effort_vehicle.py` |
 | 仿真评估 / 汇总 / 几何复核 | `tools/sim_metrics.py`、`tools/summarize_wuta_sim.py`、`tools/review_sim_geometry.py` |
-| 起步参考和惯导速度复核 | `tools/check_acceleration_start_pose.py`、`tools/check_chcnav_velocity_replay.py` |
+| 固定路径起步参考/Trackdrive旋转等价和惯导速度复核 | `tools/check_acceleration_start_pose.py`、`tools/check_chcnav_velocity_replay.py` |
 
 修改前先查看目标包的 CMakeLists、package.xml、配置与 README，确认真实可执行名和是否安装。build/install 中的副本不是编辑入口。

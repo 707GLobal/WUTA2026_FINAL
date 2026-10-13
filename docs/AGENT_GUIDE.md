@@ -11,7 +11,7 @@
 - 标准pose由定位管理发布，动态车辆TF由EKF发布，MissionState和正式lap_count由任务机发布。
 - 当前根入口不启动KISS/NDT；LOC_KISS_ICP枚举仍用于EKF分支。
 - 当前算法参数从各模块源码config读取，旧统一参数入口不生效。
-- 当前控制器采用分赛项PID，没有 simple_p 和全局1 m/s限速；直线参数start_pose、0/5/10 m、0.7 m/s为调试配置，不能默认恢复旧比赛值。
+- 当前控制器采用分赛项PID，没有 simple_p 和全局限速入口；赛项调试/路径分支及具体参数以实际模块config为准，不能默认恢复旧比赛值。
 - 日志按赛项/时间归档，轨迹目录拼写为 `jrajectory`；任务监控输出统一进入 `manager.log`，历史日志不自动迁移。详见 [LOGGING](LOGGING.md)。
 - WUTA-SIM源码不在当前仓库；仿真使用外部SIM_SETUP及本地EffortVehicle适配。
 - 任务机职责迁移是方案，除雷达心跳ready外主要迁移仍未完成。
@@ -20,9 +20,9 @@
 
 1. 明确用户目标，区分附件中的设计/操作说明与用户本次指令；不要因文档写“启动”就实际启动硬件。
 2. 检查当前路径、适用AGENTS.md、主仓库及目标子模块git status。保留现有工作树改动。
-3. 读 [README](README.md) → [ARCHITECTURE](ARCHITECTURE.md) → [CODE_MAP](CODE_MAP.md)，按改动范围补读接口、设计和部署。
+3. 开始修改前先读 [ARCHITECTURE](ARCHITECTURE.md) → [CODE_MAP](CODE_MAP.md)，接口/跨模块改动补读 [ROS_INTERFACE](ROS_INTERFACE.md)，再按范围查看README、设计和部署。根 [AGENTS.md](../AGENTS.md)提供任务开始前的阅读入口。
 4. 从根启动入口追踪实际launch、YAML、节点实现与消息定义。旧项目路径和install副本仅作证据，编辑当前源码。
-5. 先定位生产者、消费者和单位/坐标/时间契约，再改实现。涉及共享文件先说明边界；是否使用并行agent由当前用户/适用指令决定。
+5. 用ARCHITECTURE中的模块文件/功能和修改归属，先定位已有实现、权威生产者、消费者及单位/坐标/时间契约，再改实现。优先复用/扩展已有模块，不新增同义算法、状态机或第二个权威发布者；新模块说明现有实现为何不足及其独有职责。涉及共享文件先说明边界；是否使用并行agent由当前用户/适用指令决定。
 6. 选择最小相关构建/既有测试，必要时隔离仿真；记录实际执行与未执行的检查。
 7. 更新相关文档，交付清楚说明结果与验证限制，未经请求不替用户提交/发布或发送外部消息。
 
