@@ -141,8 +141,8 @@ def can_occupancy(options):
         if iface == selected:
             matches.append(pid)
     # This intentionally follows can_bridge_pid/check_prerequisites in the old script.
-    if len(matches) == 1:
-        return f'旧桥 PID={matches[0]}，接口={selected}；启动时由原脚本 sudo 重连，预检查不停止它'
+    if len(matches) == 1 and len(all_pids) == 1:
+        return f'外部桥 PID={matches[0]}，接口={selected}；启动时验证并复用，退出 FSD 时保留'
     if all_pids:
         raise RuntimeError(f'已有 ZLG 桥使用其他接口或存在重复实例；CAN_IFACE={selected}，PID={all_pids}')
     return f'未发现旧桥；启动时初始化 {selected} 并验证 vcan/UP 和设备就绪日志'

@@ -68,11 +68,9 @@ cd /home/wuta/WUTA2026_FINAL
 FSD_SETUP="$PWD/WUTA-FSD/ros2_ws/install/setup.bash" bash fsd-visualization-code/check-gui.sh --mode bridge --dashboard
 ```
 
-每次启动都会通过 sudo 重连 ZLG CAN 盒：停止使用当前 `CAN_IFACE`（默认 `can0`）的旧桥，
-等待退出后重新打开 USB 设备、初始化 CAN 通道并创建本次报文日志目录。
-旧桥 5 秒内未退出时强制结束；新桥必须在 10 秒内输出设备初始化完成，且接口已启用。
-`--reuse-can` 已停用，保留该参数只打印提示，仍执行重连。
-接口不匹配或存在重复桥时退出，避免重复打开 USB 设备。
+当前启动优先复用所选 `CAN_IFACE`（默认 `can0`）上的唯一外部 ZLG 桥：验证进程身份、vcan类型与UP状态，退出FSD时保留外部桥。
+没有桥时才创建本次运行的桥，新桥须在30秒内输出设备初始化完成且接口已启用；重复实例或接口不匹配时报错，避免重复打开USB设备。
+CAN接口可恢复同一存活桥会话缓存的VCU模式，但不恢复RES GO或急停，实时模式优先。
 
 只检查传感器与感知链，不启动建图、规划和控制时，使用 `--sensor-only`。
 若华测链路已在另一终端运行，使用 `./start_full_fsd.sh --skip-build --reuse-ins`。
@@ -92,7 +90,7 @@ FSD_SETUP="$PWD/WUTA-FSD/ros2_ws/install/setup.bash" bash fsd-visualization-code
 CAN 桥脚本需要 sudo 创建虚拟 SocketCAN 接口；本脚本在前台认证，再提权启动后台桥。
 后台桥由 `tools/run_privileged_group.py` 持续监管并转发退出信号，避免 `setsid` 分叉后
 外层启动进程返回 0，被误报为桥已退出。
-没有可用 sudo 认证时，会在当前交互终端提示输入密码；已有认证时直接重连。
+本机通过权限700且排除Git的本地askpass文件自动认证；不将口令写入日志。未配置本地辅助文件时，以入口实际认证提示为准。
 设备初始化通过不代表已收到 VCU 报文，应检查桥日志的 `VCU->FSD` 计数是否增长。
 CAN 接口会按现有配置发送上线心跳，控制帧由自检结果门控；脚本不会模拟
 VCU 模式或 RES GO。所有日志写入 `logs/<赛项>/<运行时间>/`，Ctrl-C 只关闭此入口
@@ -142,3 +140,10 @@ ready、任务机收到 GO 的累计次数、GO 是否仍待处理、圈数、�
 多赛项归入 multi_mission，仅传感器归入 sensor_only；未启动车辆时管理日志在 sessions。
 轨迹后续段应递归读取 jrajectory/segments，不覆盖第一段数据。
 详见 [日志设计与验证](docs/LOGGING.md)。
+
+## 2026-10-12 更新：惯导在线与GNSS门控
+
+桥的有效默认`min_gnss_status`已改为0：GNSS=0不因状态门槛停止发布，仍保留有限值及标准差过滤；自动ENU原点在状态4时固定。
+任务机用`/chcnav/devpvt`判断设备心跳，与定位质量分开；普通任务及RACE要求新鲜状态4，车检允许新鲜0或4。CLI仍读取ROS话题，不额外打开串口；传感器页显示GNSS码和含义。
+17:38的零上游帧、19:37的GNSS过滤是两种不同故障。后者发生在旧门槛1配置下；当前规则不能倒推为历史运行规则。
+详见[10月12日工作记录](docs/工作记录_2026-10-12.md)和[惯导分层诊断](docs/惯导临时诊断记录.md)。

@@ -12,9 +12,15 @@ import traceback
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from mission_diagnostics import describe
+from gnss_status import gnss_description, gnss_allows_start
 
 
 def message_summary(key, msg):
+    if key == 'GNSS':
+        code = int(msg.stat[1])
+        return f'GNSS 状态码={code}（{gnss_description(code)}）；' + (
+            '定位门控通过：允许下一阶段' if gnss_allows_start(code) else
+            '惯导原始数据在线，持续等待状态4；不判设备自检失败')
     if key == '惯导':
         p, v = msg.pose.pose.position, msg.twist.twist.linear
         return f'位置(m) x={p.x:.3f} y={p.y:.3f} z={p.z:.3f}；速度(m/s) x={v.x:.3f} y={v.y:.3f}'
@@ -83,7 +89,9 @@ class Telemetry:
             arguments = json.loads(Path(self.state_path).read_text()).get('args', [])
             options = {arg[2:].split('=', 1)[0]: arg.split('=', 1)[1] if '=' in arg else True
                        for arg in arguments if arg.startswith('--')}
-            deployment = configuration(options)['deployment']
+            settings = configuration(options)
+            deployment = settings['deployment']
+            raw_topic = settings['parameters']['mission'].get('ins_heartbeat_topic', '/chcnav/devpvt')
             topics = [
                 ('任务', '/system/mission_state', 'wuta_msgs/msg/MissionState'),
                 ('设备自检', '/system/devices_inspection', 'wuta_msgs/msg/DevicesInspection'),
@@ -92,6 +100,7 @@ class Telemetry:
                 ('急停广播', '/system/emergency', 'std_msgs/msg/Bool'),
                 ('控制请求', '/control/command', 'autoware_msgs/msg/Command'),
                 ('惯导', deployment.get('ins_topic', '/chcnav/odometry'), 'nav_msgs/msg/Odometry'),
+                ('GNSS', raw_topic, 'msg_interfaces/msg/Hcinspvatzcb'),
                 ('雷达', deployment.get('lidar_topic', '/rslidar_points'), 'sensor_msgs/msg/PointCloud2'),
                 ('相机', deployment.get('image_topic', '/zed/zed_node/rgb/image_rect_color'), 'sensor_msgs/msg/Image'),
                 ('融合', deployment.get('fusion_topic', '/perception/fused/cones'), 'wuta_msgs/msg/ConeArray'),
@@ -141,7 +150,7 @@ def main():
             while not telemetry.quit.is_set():
                 data = {'updated': time.time(),
                         'vehicle': telemetry.lines(['任务', '设备自检', '模式选择', 'GO广播', '急停广播', '控制请求']),
-                        'sensors': telemetry.lines(['惯导', '雷达', '相机', '融合'])}
+                        'sensors': telemetry.lines(['GNSS', '惯导', '雷达', '相机', '融合'])}
                 temporary = destination.with_suffix('.tmp')
                 temporary.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
                 temporary.replace(destination)
@@ -199,7 +208,7 @@ def main():
                 content += '\nCAN 原始收发与 VCU->FSD 计数见“组件日志 / zlg_can.log”。\n'
                 content += 'GO与模式广播为最近事件，实际门控以任务状态诊断为准。\n'
             elif selected == '传感器参数':
-                content = telemetry.lines(['惯导', '雷达', '相机', '融合'])
+                content = telemetry.lines(['GNSS', '惯导', '雷达', '相机', '融合'])
                 content += '\n频率为窗口订阅端最近5秒的接收统计；不等同于设备标称频率。\n'
             elif selected == '模块配置':
                 content = tail(ROOT / '.runtime/fsd_manager/manifest.json', 200000)

@@ -1,6 +1,6 @@
 # 当前核心 ROS 与 CAN 接口
 
-> 核对：2026-10-12。以下是 `start_full_fsd.sh` 全车模式的核心契约，非全部调试话题枚举。话题可配置或 remap 时，以实际启动配置为准。
+> 核对：2026-10-13（同步10月12日工作）。以下是 `start_full_fsd.sh` 全车模式的核心契约，非全部调试话题枚举。话题可配置或 remap 时，以实际启动配置为准。
 
 ## 1. 感知、定位、建图和控制
 
@@ -19,7 +19,8 @@
 | `/perception/lidar/cones_raw` | wuta_msgs/ConeArray | LiDAR 检测 → 后融合 |
 | `/perception/fused/cones` | wuta_msgs/ConeArray | 后融合 → 建图（原订阅 `/perception/lidar/cones` 被 remap）及显示 |
 | `/perception/fusion/status` | std_msgs/String | 后融合 → 调试工具，内容为 JSON |
-| `/chcnav/odometry` | nav_msgs/Odometry | 华测 FSD 桥 → EKF、任务自检 |
+| `/chcnav/devpvt` | msg_interfaces/Hcinspvatzcb | 华测协议节点 → FSD桥、任务机设备心跳及GNSS门控、终端状态 |
+| `/chcnav/odometry` | nav_msgs/Odometry | 华测 FSD 桥 → EKF、CLI首帧检查 |
 | `/chcnav/velocity` | geometry_msgs/TwistStamped | 华测 FSD 桥 → 控制器、规划记录 |
 | `/odometry/filtered` | nav_msgs/Odometry | EKF → 定位管理 |
 | `/localization/pose` | geometry_msgs/PoseStamped | 定位管理 → 建图、边界、规划、控制、任务机、显示 |
@@ -47,7 +48,11 @@
 | `/system/mission_complete` | std_msgs/Bool | 控制器 → 任务机；Trackdrive 由正式圈次完成 |
 | `/ndt/map_ready` | std_msgs/Bool | 可选 map_saver → 任务机；当前默认不依赖 |
 
-任务机不订阅旧 `/system/lidar_ready`，而以 M1 点云接收心跳判断雷达在线。不要为当前启动链补造该话题。
+任务机不订阅旧 `/system/lidar_ready`，而以M1点云接收心跳判断雷达在线；惯导自检以`ins_heartbeat_topic`（默认`/chcnav/devpvt`）接收心跳判断，GNSS=0不等于设备离线。默认心跳超时2秒。
+
+`MissionState.description`包含`gnss_status`、`gnss_ready`及`wait`等诊断，显示端消费实际字段。GNSS=4为RTK固定解定位定向，8为固定解定位不定向，不等同于4。`gnss_ready`反映当前赛项的启动门控：车检允许新鲜0或4，其他任务及RACE要求新鲜4；完整0–9含义见`tools/gnss_status.py`。
+
+桥默认`min_gnss_status=0`仍保留有限值/标准差检查；显式原点直接采用，自动原点在状态4时固定。GNSS低质量时收到odometry不代表可发车。
 
 ## 3. 消息契约
 
@@ -108,3 +113,7 @@ go_count、go_pending、lidar_ready、localization_ready 及地图/定位/RACE�
 pose、confidence、ndt、lap、emergency、finished。
 `mission_monitor` 只订阅状态和自检，不发布赛项、GO或控制指令。状态事件统一进入
 manager.log，观察到的实际赛项写 mission_history.json。目录与归档见 [LOGGING](LOGGING.md)。
+
+## 模式会话缓存
+
+ZLG桥将当前会话的有效VCU模式写到`/run/zlgcan_bridge`。CAN接口默认启用`mode_cache`，等待2秒恢复模式，实时模式优先；仅模式可恢复，RES GO/急停不缓存。默认`max_age_sec=0`不按时间过期，仍验证桥PID、启动时间、接口及会话身份；缓存不代表VCU持续在线。

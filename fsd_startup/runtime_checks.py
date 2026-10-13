@@ -27,6 +27,7 @@ class RuntimeChecks:
         self.add('build:zlg', '构建', 'ZLG CAN 桥构建')
         self.add('environment', '环境', 'ROS 与工作空间环境加载')
         self.add('can_ready', '硬件', 'CAN 设备初始化与 vcan/UP')
+        self.add('gnss', '任务门控', 'GNSS 任务门控')
         for name, label in self.labels.items():
             self.add('process:' + name, '进程', label)
         self.add('observer', '监控', '只读任务监控启动')
@@ -43,6 +44,7 @@ class RuntimeChecks:
             for topic in ('定位输出', '任务状态广播'):
                 self.skip('topic:' + topic, 'sensor-only 不检查此话题')
             self.skip('observer', 'sensor-only 不启动任务监控')
+            self.skip('gnss', 'sensor-only 不启动任务机；传感器页仍显示GNSS状态')
         if 'reuse-ins' in options:
             self.skip('process:chcnav', '复用外部惯导；数据输出仍由原脚本检查')
         if not options.get('_rviz', 'no-rviz' not in options) and not build_only:
@@ -65,6 +67,10 @@ class RuntimeChecks:
         self.rows[key].update(status='跳过', detail=reason, ok=None)
 
     def consume(self, line):
+        match = re.search(r'GNSS：(-?\d+)（.*?），门控=(.*)', line)
+        if match:
+            ready = match.group(2) == '通过'
+            self.set('gnss', 'GNSS已就绪' if ready else match.group(2), line, True if ready else None)
         if line.startswith('[启动] '):
             for name, label in self.labels.items():
                 if line.startswith('[启动] ' + label + ' ...'):
@@ -92,6 +98,9 @@ class RuntimeChecks:
                     self.set('build:' + key, '沿用安装产物', '原脚本加载安装环境；未执行本次构建', True)
         if line.startswith('[成功] CAN 盒已重新打开并初始化'):
             self.set('can_ready', '设备初始化通过', line, True)
+        elif line.startswith('[成功] 已复用外部 CAN 桥'):
+            self.set('can_ready', '外部桥接口通过', line, True)
+            self.set('process:zlg_can', '复用外部进程', line, True)
         elif line.startswith('[重连]') or line.startswith('[启动] ' + self.labels['zlg_can']):
             self.set('can_ready', '初始化中', line)
         if line.startswith('[失败]') and any(word in line for word in ('CAN 桥', 'CAN 盒', '旧 CAN 桥', 'ZLG CAN 桥')):
@@ -108,7 +117,9 @@ class RuntimeChecks:
 
     def stopped(self, code):
         for key, item in self.rows.items():
-            if key.startswith('process:') and item['ok'] is True:
+            if key == 'process:zlg_can' and item['status'] == '复用外部进程':
+                self.set(key, '外部桥未清理', item['detail'] + '\n本次运行结束，外部桥未由 FSD 停止；当前收报需独立确认')
+            elif key.startswith('process:') and item['ok'] is True:
                 self.set(key, '已停止', item['detail'] + '\n本次运行已停止；以上是启动时的验证记录')
             elif item['status'] in ('启动中', '等待数据', '初始化中'):
                 self.set(key, '未完成', item['detail'] + f'\n原启动器结束，退出码={code}')

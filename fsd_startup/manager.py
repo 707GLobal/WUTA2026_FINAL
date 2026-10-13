@@ -237,6 +237,9 @@ class Manager:
     def drain_events(self):
         while not self.events.empty():
             line = self.events.get_nowait()
+            # Replace the legacy static hint at the manager presentation boundary.
+            if line == '[提示] 任务仍需满足就绪条件、由 VCU 选择模式，再按 RES GO。':
+                line = '[提示] 当前任务模式与尚未满足的启动条件，请查看任务监控最新的“任务选择”和“下一步”；全栈启动完成不代表车辆已获准发车。'
             self.runtime_checks.consume(line)
             level = 'error' if re.search(r'失败|ERROR|Traceback|FATAL', line, re.I) else (
                 'ok' if '[成功]' in line else 'warn' if re.search(r'WARN|警告', line, re.I) else 'info')

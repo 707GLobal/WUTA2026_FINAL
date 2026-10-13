@@ -111,8 +111,8 @@ RViz opens by default using fsd-visualization-code and its bundled display
 and topic configuration. --no-rviz disables it;
 --image-view aliases --rviz.
 --reuse-ins uses an existing INS bridge and still verifies its odometry output.
-Every start reconnects the ZLG CAN bridge via sudo; enter the password in this
-terminal when prompted. An existing bridge on the selected interface is stopped.
+An existing ZLG CAN bridge on the selected interface is verified and reused.
+Otherwise a new bridge is started via sudo. External bridges survive FSD shutdown.
 Ctrl-C stops only processes started by this script. Logs are in logs/<mission>/<run time>/ (pending until archive).
 EOF
 }
@@ -226,7 +226,7 @@ for pid in result.stdout.split():
             iface = arg.split('=', 1)[1]
     if iface == sys.argv[1]:
         matches.append(pid)
-if len(matches) == 1:
+if len(matches) == 1 and len(result.stdout.split()) == 1:
     print(matches[0])
     sys.exit(0)
 sys.exit(1)
@@ -299,7 +299,7 @@ check_prerequisites() {
     report_ok 'ZLG USB 设备已检测到'
     local bridge_pid
     if bridge_pid="$(can_bridge_pid)"; then
-        report_ok "检测到旧 ZLG CAN 桥：$CAN_IFACE（PID=$bridge_pid）；启动时将通过 sudo 重连"
+        report_ok "检测到旧 ZLG CAN 桥：$CAN_IFACE（PID=$bridge_pid）；启动时验证接口并复用，退出 FSD 时保留该桥"
     elif pgrep -x zlg_can_bridge >/dev/null; then
         fail "已有 ZLG CAN 桥使用其他接口或存在重复实例，请检查桥参数与 CAN_IFACE=$CAN_IFACE"
     fi
@@ -366,6 +366,9 @@ build_workspaces() {
         -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.10.so \
         -DPYTHON_INSTALL_DIR=lib/python3.10/site-packages)
     report_ok '华测驱动与消息包构建完成'
+    set +u
+    source "$CHC_WS/install/setup.bash"
+    set -u
     (cd "$FSD_WS" && colcon build --base-paths src --symlink-install --parallel-workers 2 \
         --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3)
     report_ok 'FSD 算法包构建完成'
@@ -565,26 +568,21 @@ reconnect_can_bridge() {
     local bridge_pid expected attempt
     if bridge_pid="$(can_bridge_pid)"; then
         expected="$(proc_start_time "$bridge_pid")"
-        printf '[重连] 停止旧 CAN 桥：PID=%s，接口=%s\n' "$bridge_pid" "$CAN_IFACE"
-        sudo -n kill -TERM "$bridge_pid" || fail '无法停止旧 CAN 桥'
-        for ((attempt=0; attempt<50; attempt++)); do
-            [[ "$(proc_start_time "$bridge_pid")" == "$expected" ]] || break
-            # A zombie has already released its USB handles.
-            [[ "$(awk '{print $3}' "/proc/$bridge_pid/stat" 2>/dev/null || true)" != Z ]] || break
-            sleep 0.1
-        done
-        if (( attempt == 50 )); then
-            echo '[重连] 旧 CAN 桥未正常退出，强制结束后重新打开设备。'
-            sudo -n kill -KILL "$bridge_pid" || fail '无法强制停止旧 CAN 桥'
-            sleep 0.2
-        fi
+        [[ -n "$expected" ]] || fail '已有 CAN 桥在检查时退出，未打开第二个设备实例' zlg_can
+        check_existing_can || fail "已有 CAN 桥的 $CAN_IFACE 接口未就绪，保留外部进程" zlg_can
+        [[ "$(proc_start_time "$bridge_pid")" == "$expected" ]] || fail '已有 CAN 桥在检查时退出，未打开第二个设备实例' zlg_can
+        # External bridge is deliberately not registered in CHILD_PIDS:
+        # FSD shutdown must not stop a bridge owned by another terminal.
+        printf '[复用] 外部 CAN 桥：PID=%s，接口=%s；退出 FSD 时保留该桥。\n' "$bridge_pid" "$CAN_IFACE" > "$LOG_DIR/zlg_can.log"
+        report_ok "已复用外部 CAN 桥：$CAN_IFACE（PID=$bridge_pid）；接口已就绪，收报请查看独立桥终端或 candump $CAN_IFACE"
+        return
     fi
     # Never open the same USB device twice; also catch changes since prerequisites.
     if pgrep -x zlg_can_bridge >/dev/null; then
         fail '仍有 ZLG CAN 桥进程，无法独占设备并重连'
     fi
     start_group zlg_can bash "$ROOT/zlgcan_bridge/start_zlg_bridge.sh" "--iface=$CAN_IFACE"
-    for ((attempt=0; attempt<100; attempt++)); do
+    for ((attempt=0; attempt<300; attempt++)); do
         check_children
         if grep -Fq '[main] 就绪:' "$LOG_DIR/zlg_can.log"; then
             check_existing_can || fail "CAN 桥初始化完成，但 $CAN_IFACE 接口未就绪" zlg_can
@@ -593,13 +591,16 @@ reconnect_can_bridge() {
         fi
         sleep 0.1
     done
-    fail 'CAN 桥 10 秒内未完成设备初始化；接口存在不代表 CAN 盒已连接' zlg_can
+    fail 'CAN 桥 30 秒内未完成设备初始化；接口存在不代表 CAN 盒已连接' zlg_can
 }
 
 reconnect_can_bridge
 if [[ "$REUSE_INS" == 1 ]]; then
     report_ok '复用外部华测链路；将检查惯导输出话题'
 else
+    if [[ "${FSD_INS_DIAGNOSTICS:-1}" == 1 ]]; then
+        export CHCNAV_DIAGNOSTIC_DIR="$RUN_DIR/artifacts/chcnav_diagnostic"
+    fi
     start_group chcnav bash "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh" --no-build "--port=$INS_PORT" "--log-dir=$RUN_DIR/artifacts/chcnav"
 fi
 

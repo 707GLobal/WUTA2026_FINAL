@@ -116,3 +116,12 @@ def test_existing_supervisor_blocks_a_second_stack(tmp_path):
             checks.supervisor({})
         file.write_text(f'{record["pid"]} 0\n')
         assert '已失效' in checks.supervisor({})
+
+
+def test_external_can_bridge_status_survives_fsd_shutdown():
+    progress = RuntimeChecks({})
+    progress.consume('[成功] 已复用外部 CAN 桥：can0（PID=123）')
+    assert progress.rows['can_ready']['ok'] is True
+    assert progress.rows['process:zlg_can']['status'] == '复用外部进程'
+    progress.stopped(0)
+    assert progress.rows['process:zlg_can']['status'] == '外部桥未清理'

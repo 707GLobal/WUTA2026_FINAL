@@ -1,11 +1,12 @@
 # WUTA2026_FINAL 开发文档入口
 
-本文档集面向多人开发与 agent，核对日期为 **2026-10-12**。范围是当前 `WUTA2026_FINAL` 的源码与部署入口，不是旧项目 `/home/wuta/lyx/WUTA` 的部署说明。
+本文档集面向多人开发与 agent，核对日期为 **2026-10-13**（同步10月12日工作）。范围是当前 `WUTA2026_FINAL` 的源码与部署入口，不是旧项目 `/home/wuta/lyx/WUTA` 的部署说明。
 
 ## 阅读顺序
 
 | 文档 | 用途 |
 | --- | --- |
+| [工作记录_2026-10-12.md](工作记录_2026-10-12.md) | 昨日启动管理、CAN/GNSS策略及惯导故障证据，区分历史验证与当前行为 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 系统边界、实车数据流、节点职责及默认启动范围 |
 | [CODE_MAP.md](CODE_MAP.md) | 按功能找源码、配置和验证入口 |
 | [ROS_INTERFACE.md](ROS_INTERFACE.md) | 核心话题、消息、坐标、时间、CAN 契约 |
@@ -34,7 +35,7 @@
 
 | 旧参考描述 | 当前代码现状 |
 | --- | --- |
-| CAN 是不可编译预留目录 | `can_interface` 已有构建文件、SocketCAN、标定映射及命令看门狗；实车入口启动它 |
+| CAN 是不可编译预留目录 | `can_interface` 已有构建文件及SocketCAN；当前恢复基线周期发送逻辑，以源码实际参数为准，实车入口启动它 |
 | 默认系统为 WUTA-SIM + KISS/INS/EKF | 当前根入口是 M1/ZED/华测/CAN 实车全栈；不默认启动 KISS/NDT |
 | INS 为 `/cg410/odometry`，控制器速度为 `/localization/velocity` | 实车 EKF 为 `/chcnav/odometry`，控制器速度为 `/chcnav/velocity` |
 | 根目录有 WUTA-SIM 与 `start_simulator.sh` | 当前仓库没有该模拟器源码；本地仿真入口依赖外部 SIM_SETUP |
@@ -50,4 +51,7 @@
 - 仿真：[连接与验证](WUTA_SIM验证与启动.md)、[历史验证结果](WUTA_SIM最终验证结果_2026-10-11.md)。历史通过项仅对对应配置和覆盖范围成立。
 - 演进：[任务机职责迁移说明](任务机职责迁移说明.md)为待实施方案，具体已完成程度见 [DESIGN.md](DESIGN.md)。
 - 日志：[运行日志](LOGGING.md)，包含 `jrajectory/`、逐模块输出、赛项归档及已执行验证。历史日志路径保持原样。
-- 实车入口：[README_FULL_FSD.md](../README_FULL_FSD.md)。其中历史运行记录与当前脚本策略需分别理解，例如当前每次启动都会重连 CAN。
+- 实车入口：[README_FULL_FSD.md](../README_FULL_FSD.md)。其中历史运行记录与当前脚本策略需分别理解，例如当前启动优先复用已存在的同接口唯一CAN桥。
+
+- 惯导：[临时分层诊断](惯导临时诊断记录.md)，区分字节输入、CRC、devpvt传递和GNSS过滤。
+- 本次更新只涉及文档；角度标定脚本及对应专题暂不更新。

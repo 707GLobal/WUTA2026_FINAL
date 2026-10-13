@@ -1,6 +1,6 @@
 # 按功能定位代码
 
-> 表内 FSD 路径均相对 `WUTA-FSD/ros2_ws/src/`，2026-10-12 工作树快照。
+> 表内 FSD 路径均相对 `WUTA-FSD/ros2_ws/src/`，2026-10-13复核，同步10月12日工作树。
 
 | 功能 | 核心实现 | 配置 / 验证入口 |
 | --- | --- | --- |
@@ -28,6 +28,10 @@
 | 日志上下文 / 归档 | `fsd_startup/log_context.py`；`tools/run_logged.py`；说明见 [LOGGING](LOGGING.md) |
 | 任务诊断展示 | `tools/mission_diagnostics.py`；权威等待条件在 FSD mission_manager |
 | 实车编排 / 进程清理 | [start_full_fsd.sh](../start_full_fsd.sh) |
+| 纯键盘终端与自启 | `start_fsd_manager.sh`；`fsd_startup/{manager,terminal_ui,dashboard,runtime_checks}.py`；`autostart.sh` |
+| GNSS状态含义 | `tools/gnss_status.py`；任务门控在mission_manager，显示通过ROS订阅 |
+| 惯导分层诊断 | `temporary_ins_diagnostics.hpp`与华测parser/protocol/bridge内计数；[诊断记录](惯导临时诊断记录.md) |
+| CAN模式会话缓存 | `zlgcan_bridge/mode_cache.{c,h}`；`system/can_interface/src/mode_cache.cpp`及`mode_cache`配置 |
 | 华测解析和 FSD 桥 | `humble-chcnav-cgi_ros2pkg/src/chcnav/src/chcnav_fsd_bridge/ChcnavFsdBridge.cpp`；`scripts/start_chcnav_fsd.sh`；`config/chcnav_fsd_bridge.yaml` |
 | ZLG 桥 | `zlgcan_bridge/{main,can_side,zlg_side,can_log}.c`；`start_zlg_bridge.sh`、`bridge.yaml`、Makefile |
 | 显示桥 / 布局 | `fsd-visualization-code/src/fsd_visualization/fsd_visualization/{bridge,configuration}.py`；`fsd-visualization-code/src/fsd_visualization/config/{topics.yaml,fsd.rviz}` |

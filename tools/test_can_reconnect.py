@@ -52,11 +52,18 @@ check_existing_can() { [[ "$VALID" == 1 ]]; }
             events = (root / 'events').read_text()
             return result.returncode, events
 
-    def test_old_bridge_stopped_before_new_bridge(self):
+    def test_external_bridge_reused_without_shutdown_or_second_open(self):
         code, events = self.run_reconnect(old=True)
         self.assertEqual(code, 0, events)
-        self.assertLess(events.index('SUDO -n kill -TERM'), events.index('START'))
-        self.assertIn('CAN 盒已重新打开并初始化', events)
+        self.assertNotIn('SUDO', events)
+        self.assertNotIn('START', events)
+        self.assertIn('已复用外部 CAN 桥', events)
+
+    def test_invalid_external_interface_blocks_reuse(self):
+        code, events = self.run_reconnect(old=True, valid=False)
+        self.assertNotEqual(code, 0)
+        self.assertNotIn('SUDO', events)
+        self.assertNotIn('START', events)
 
     def test_first_start_still_initializes(self):
         code, events = self.run_reconnect()
@@ -64,20 +71,10 @@ check_existing_can() { [[ "$VALID" == 1 ]]; }
         self.assertNotIn('kill', events)
         self.assertIn('START zlg_can', events)
 
-    def test_stuck_bridge_is_killed_before_reopening(self):
-        code, events = self.run_reconnect(old=True, stuck=True)
-        self.assertEqual(code, 0, events)
-        self.assertLess(events.index('kill -KILL'), events.index('START'))
-
-    def test_permission_failure_does_not_open_second_bridge(self):
-        code, events = self.run_reconnect(old=True, kill_error=True)
-        self.assertNotEqual(code, 0)
-        self.assertNotIn('START', events)
-
     def test_interface_alone_cannot_pass_initialization(self):
         code, events = self.run_reconnect(ready=False)
         self.assertNotEqual(code, 0)
-        self.assertIn('10 秒内未完成设备初始化', events)
+        self.assertIn('30 秒内未完成设备初始化', events)
 
     def test_ready_message_requires_enabled_interface(self):
         code, events = self.run_reconnect(valid=False)

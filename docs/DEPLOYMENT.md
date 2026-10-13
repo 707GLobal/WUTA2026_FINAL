@@ -1,6 +1,6 @@
 # 部署与运行
 
-> 2026-10-12；本页命令供开发者执行。本次文档整理未启动实车、发车或改动运行配置。
+> 2026-10-13复核（同步10月12日工作）；本页命令供开发者执行。本次文档整理未启动实车、发车或改动运行配置。
 
 ## 1. 环境与文件
 
@@ -30,7 +30,7 @@ cd /home/wuta/WUTA2026_FINAL
 
 该命令只解析/检查配置并输出 JSON，不连接硬件。检查控制/CAN最大转角一致、感知话题链、自检输入、有限值与NDT关闭；它不能替代模型存在、设备或全部参数合法性检查。
 
-显式覆盖支持 `--controller-config=FILE`、`--can-config=FILE`、`--model=FILE`、`--calibration=FILE`、`--base-to-zed=FILE` 和 `--ins-port=...`。模型覆盖不自动同步引擎输入尺寸；需核对相机配置。CAN_IFACE环境变量可选接口，`--reuse-can`已停用。
+显式覆盖支持 `--controller-config=FILE`、`--can-config=FILE`、`--model=FILE`、`--calibration=FILE`、`--base-to-zed=FILE` 和 `--ins-port=...`。模型覆盖不自动同步引擎输入尺寸；需核对相机配置。CAN_IFACE环境变量可选接口，外部CAN桥复用由启动器自动判断。
 
 ## 3. 构建与实车启动
 
@@ -46,7 +46,11 @@ cd /home/wuta/WUTA2026_FINAL
 
 `--check` 检查部署文件、设备/网络和已有资源，失败原因以输出为准。`--build-only` 构建华测msg_interfaces/chcnav、当前FSD各包、ZLG桥和显示包。默认自动构建仅在关键setup缺失时触发，已有install不保证源码修改已重建。
 
-普通启动每次重连ZLG桥，可能停止同一CAN接口的旧桥，需要交互sudo；进入编排后依次等待点云、图像、融合、惯导和定位首帧，最终确认任务状态。进程存活、收到消息、READY和实际发车是不同状态。
+当前启动优先验证并复用同接口唯一外部ZLG桥，退出时保留它；无桥才创建并等待初始化，最多30秒。重复实例或接口不匹配报错，不强制停止外部桥。sudo通过本机本地askpass自动认证，串口缺权限时授予当前用户ACL。
+
+管理器独立预检查并行，点云/图像/惯导首帧也并行；融合、定位及下游节点仍按依赖推进。CLI读取ROS话题，不额外读取串口字节。进程存活、收到首帧、持续在线、READY和实际发车是不同状态。
+
+默认纯键盘Textual界面，X停止、Q清理退出；失败保留界面，可修复后重试。终端背景沿用用户配置。GNOME登录自启配置和完整快捷键见[启动包说明](../fsd_startup/README.md)。
 
 RViz默认开启，无图形桌面用 `--no-rviz`；关闭RViz会触发全栈进程监管停止。只看传感器/感知可使用 `--sensor-only`，仍连接真实CAN桥和传感器，但不启动控制链。`--reuse-ins`复用外部惯导并验证输出，退出时保留外部进程。
 
@@ -67,6 +71,8 @@ ros2 topic echo --once /system/mission_state
 ros2 topic echo --once /system/devices_inspection
 ros2 run tf2_ros tf2_echo map base_link
 ```
+
+惯导无输出先按[临时诊断](惯导临时诊断记录.md)检查字节、解析、CRC、devpvt到桥和拒绝计数。当前桥门槛为0，GNSS状态0本身不停止发布；任务自检用原始devpvt心跳，GNSS质量与设备在线分开。普通任务及RACE要求新鲜GNSS=4，车检允许新鲜0或4，GO仍需真实输入。
 
 定位不ready时查华测→EKF→定位输出；地图为空时查融合颜色、时间、map←rslidar TF和最少命中；无路径时查红蓝数量、边界与方向；无法发车查自检、模式、GO是否已消费与状态门槛。监控超过3 s无状态广播会提示，具体信息见 `manager.log`。
 

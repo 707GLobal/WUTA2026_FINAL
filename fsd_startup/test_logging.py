@@ -216,3 +216,19 @@ raise SystemExit(run_logged.main())
             os.killpg(pid, signal.SIGKILL)
             os.waitpid(pid, 0)
         os.close(terminal)
+
+
+def test_manager_replaces_legacy_mode_selection_hint(tmp_path):
+    import manager
+    with patch.object(manager, 'ROOT', tmp_path), patch.object(manager, 'RUNTIME', tmp_path):
+        instance = Manager([], color=False)
+        try:
+            instance.events.put('[状态 21:08:49] 任务选择：acceleration 直线加速')
+            instance.events.put('[提示] 任务仍需满足就绪条件、由 VCU 选择模式，再按 RES GO。')
+            instance.drain_events()
+            text = instance.log_path.read_text()
+            assert '任务选择：acceleration 直线加速' in text
+            assert '任务监控最新的“任务选择”和“下一步”' in text
+            assert '由 VCU 选择模式，再按 RES GO' not in text
+        finally:
+            instance.log.close()
