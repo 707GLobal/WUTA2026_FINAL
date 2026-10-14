@@ -136,6 +136,7 @@ start_fsd_manager.sh
 | 暂停/恢复实时日志刷新 | Space |
 
 左侧 `OptionList` 负责选择页面，右侧使用 `DataTable`、`Select` 和 `RichLog` 展示内容。底部 `Static` 仅显示快捷键提示，不可输入。页面目录在 `VIEWS` 中维护，操作绑定在 `FsdApp.BINDINGS` 中维护。
+组件日志与模块配置各有一个独立 `Select`，只在各自页面显示。Tab切换到选择器，Enter展开，方向键选择、Enter确认。配置选项由已有 `manifest.json` 的 `files`/`parameters` 生成，`CONFIG_LABELS` 仅提供中文名称，不定义新的配置来源。显示清单中的源路径、参数及相机/CAN部署选择，不能当作节点在线参数查询。完整清单仍可选择查看，刷新时保留有效选择，已移除模块回到完整清单；读取错误在当前页提示。
 
 窄终端缩小左侧菜单宽度，菜单始终保留；没有命令输入框时不能隐藏唯一页面选择入口。焦点由 Textual 的原有 Tab 遍历管理，隐藏的检查表或组件选择器不参与当前页面操作。
 
@@ -188,7 +189,7 @@ bash -n start_fsd_manager.sh fsd_startup/autostart.sh fsd_startup/window.sh fsd_
 
 | 测试 | 验证重点 |
 | --- | --- |
-| `test_terminal_ui.py` | 无输入框/按钮，Tab焦点、方向键页面选择、完整错误、窄终端、键盘退出 |
+| `test_terminal_ui.py` | 无输入框/按钮，Tab焦点、方向键页面选择、完整错误、窄终端、键盘退出；模块配置选择、刷新保留选择、清单缺失/无效及恢复 |
 | `test_startup.py` | 并行错误收集、权限适配、失败保留操作、PID身份与清理 |
 | `test_check_alignment.py` | 检查项目与根入口一致、参数模式、首帧和进程状态分离 |
 | `test_logging.py` | 日志目录、配置快照、输出收集、归档和故障恢复 |
