@@ -2,8 +2,6 @@
 /logs/
 /models/*.engine
 /config/camera_lidar.yaml
-/fsd_startup/__pycache__/
-/fsd_startup/sudo_askpass.local.sh
 
 # Python and tool caches
 __pycache__/

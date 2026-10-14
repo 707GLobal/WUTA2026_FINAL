@@ -29,7 +29,7 @@
 | 日志上下文 / 归档 | `fsd_startup/log_context.py`；`tools/run_logged.py`；说明见 [LOGGING](LOGGING.md) |
 | 任务诊断展示 | `tools/mission_diagnostics.py`；权威等待条件在 FSD mission_manager |
 | 实车编排 / 进程清理 | [start_full_fsd.sh](../start_full_fsd.sh) |
-| 纯键盘终端与自启 | `start_fsd_manager.sh`；`fsd_startup/{manager,terminal_ui,dashboard,runtime_checks}.py`；`autostart.sh`；[开发指南](DEVELOPMENT.md#startup-development) |
+| 纯键盘终端与自启 | 根 `start_fsd_manager.sh`；独立 [CLI子模块](https://github.com/starry1N/WUTA-FSD-CLI) 的 `fsd_startup/{manager,terminal_ui,dashboard,runtime_checks}.py`、`autostart.sh`；[开发指南](DEVELOPMENT.md#startup-development) |
 | GNSS状态含义 | `tools/gnss_status.py`；任务门控在mission_manager，显示通过ROS订阅 |
 | 惯导分层诊断 | `temporary_ins_diagnostics.hpp`与华测parser/protocol/bridge内计数；[诊断记录](惯导临时诊断记录.md) |
 | CAN模式会话缓存 | `zlgcan_bridge/mode_cache.{c,h}`；`system/can_interface/src/mode_cache.cpp`及`mode_cache`配置 |

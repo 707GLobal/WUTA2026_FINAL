@@ -15,7 +15,7 @@
 | `humble-chcnav-cgi_ros2pkg` | 华测通信解析、自定义消息及 FSD 坐标/速度桥；Git 子模块 |
 | `zlgcan_bridge` | ZLG USB CAN 与虚拟 SocketCAN 双向桥、报文日志；Git 子模块 |
 | `fsd-visualization-code` | RViz 配置、只读显示桥、安全图像插件 |
-| `fsd_startup` | 启动管理界面、预检查、所属进程清理与日志生命周期；全栈部署委托根脚本 |
+| `fsd_startup` | 独立 [WUTA-FSD-CLI](https://github.com/starry1N/WUTA-FSD-CLI) Git 子模块；启动管理界面、预检查、所属进程清理与日志生命周期；全栈部署委托根脚本 |
 | `tools` | 配置审计、任务监控、启动监管、仿真适配、评估与回归 |
 | `config` / `models` | 车辆与传感器外参、显示配置、机器相关推理引擎 |
 | `docs` | 开发文档、专题记录与历史验证证据 |
@@ -368,6 +368,7 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 ## 8. 启动管理与GNSS边界
 
 `fsd_startup`是Rich/Textual纯键盘前端，权限、预检查、ROS话题状态、日志与残留清理在单终端完成。部署通过根启动器执行，当前优先复用同接口唯一外部CAN桥，退出不清理外部桥。
+2026-10-14 起代码归独立 CLI 仓库管理，宿主通过 `fsd_startup` 子模块固定提交版本；路径和根 `start_fsd_manager.sh` 入口保持不变。CLI仍消费宿主 `tools/`、配置和启动脚本，不复制算法或另建全栈编排；开发文档继续在宿主 `docs/` 维护。本地认证文件留在子模块工作目录且不入库。
 界面无命令输入框或数字页面快捷键，通过Tab切换区域、方向键和Enter选择页面。启动包维护约定见 [启动管理开发指南](DEVELOPMENT.md#startup-development)。
 
 惯导数据传输与定位质量分开：桥默认门槛0，任务机用devpvt判设备在线，另以GNSS门控决定任务推进；车检允许新鲜0或4，其他任务及RACE要求新鲜4。终端只订阅ROS数据，不额外读取串口。临时诊断在已有驱动内部采集，不改变串口读者数量。

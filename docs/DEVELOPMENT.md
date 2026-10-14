@@ -10,7 +10,7 @@
 
 共享高冲突文件包括消息定义、`start_full_fsd.sh`、实车感知launch、模块config、任务状态机和显示topics。提前说明要改哪些文件，避免不同开发者同时写同一配置。第三方定位源码优先通过参数和适配层接入，必要的源码修改说明原因。
 
-工作树可能存在其他人的本地修改。先查看主仓库和目标子模块git status；保留无关修改，按文件提交自己的变化。WUTA-FSD/华测/ZLG是独立Git仓库：先在各子模块提交，再更新主仓库指针；仅提交父仓库不能保存子模块未提交内容。新克隆或更新子模块前先确认本地资产与修改。
+工作树可能存在其他人的本地修改。先查看主仓库和目标子模块git status；保留无关修改，按文件提交自己的变化。WUTA-FSD/华测/ZLG及fsd_startup CLI是独立Git仓库：先在各子模块提交，再更新主仓库指针；仅提交父仓库不能保存子模块未提交内容。新克隆或更新子模块前先确认本地资产与修改。
 
 ## 2. 接口变更联动
 
@@ -75,6 +75,16 @@ ROS_DOMAIN_ID=222 ROS_LOCALHOST_ONLY=1 PYTHONNOUSERSITE=1 /usr/bin/python3 -m py
 <a id="startup-development"></a>
 
 ## 5. 启动管理包开发指南
+
+CLI代码自2026-10-14起拆为 [starry1N/WUTA-FSD-CLI](https://github.com/starry1N/WUTA-FSD-CLI)，在宿主中仍位于 `fsd_startup/`。宿主保留根启动器、配置审计工具、算法和本开发文档；CLI子模块保留界面、管理器、检查展示、进程工具与已有日志上下文组件。
+
+```bash
+# 从宿主根目录初始化固定版本
+git submodule update --init --recursive
+git -C fsd_startup status --short
+```
+
+修改CLI时在子模块内创建开发分支并提交、推送，再在宿主提交 `fsd_startup` 指针及相关文档。不要只推送宿主却遗漏CLI提交，也不要为升级自动覆盖本地改动。本地 `sudo_askpass.local.sh` 与缓存由子模块自己的 `.gitignore` 排除；新克隆不会获得密码。
 
 核对日期：2026-10-13。启动包目录实际名称为 `fsd_startup`。本页面向修改启动管理工具的开发者；日常操作见 [README](../fsd_startup/README.md)，系统职责见 [ARCHITECTURE](ARCHITECTURE.md)，项目接手流程见 [AGENT_GUIDE](AGENT_GUIDE.md)。
 

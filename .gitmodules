@@ -8,3 +8,7 @@
 [submodule "zlgcan_bridge"]
 	path = zlgcan_bridge
 	url = https://github.com/707GLobal/zlgcan_bridge.git
+[submodule "fsd_startup"]
+	path = fsd_startup
+	url = https://github.com/starry1N/WUTA-FSD-CLI.git
+	branch = main

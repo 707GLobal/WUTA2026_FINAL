@@ -53,6 +53,8 @@ cd /home/wuta/WUTA2026_FINAL
 
 默认纯键盘Textual界面，X停止、Q清理退出；失败保留界面，可修复后重试。使用Catppuccin Mocha主题，无命令输入框或数字页面快捷键；Tab切换区域，方向键与Enter选择页面。GNOME登录自启配置和完整快捷键见[启动包说明](../fsd_startup/README.md)，维护方法见[开发指南](DEVELOPMENT.md#startup-development)。
 
+CLI源码独立为 [WUTA-FSD-CLI](https://github.com/starry1N/WUTA-FSD-CLI)，宿主挂载路径仍为 `fsd_startup/`。新克隆或拉取本次目录拆分后，先在宿主根执行 `git submodule update --init --recursive`，再执行 `bash fsd_startup/install_ui.sh`。根启动入口和桌面自启路径不变；当前机器的本地askpass认证文件保留，但它不随Git分发，新部署需配置本地认证。
+
 RViz默认开启，无图形桌面用 `--no-rviz`；关闭RViz会触发全栈进程监管停止。只看传感器/感知可使用 `--sensor-only`，仍连接真实CAN桥和传感器，但不启动控制链。`--reuse-ins`复用外部惯导并验证输出，退出时保留外部进程。
 
 当前脚本不会伪造VCU选择或RES GO。运行先写 `logs/pending/<运行时间>/`，结束并关闭文件后按实际赛项归档到 `logs/<赛项>/<运行时间>/`。未选赛项保留 pending，多赛项归入 multi_mission，传感器模式归入 sensor_only。`manager.log` 收集启动和任务诊断，模块输出在 modules，轨迹在 jrajectory，配置副本在 configs；未运行时管理日志在 logs/sessions。详见 [运行日志](LOGGING.md)。`.runtime/full_fsd`保存监管状态。Ctrl-C按脚本清理本次进程。
