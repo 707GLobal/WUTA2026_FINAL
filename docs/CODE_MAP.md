@@ -48,3 +48,7 @@
 | 固定路径起步参考/Trackdrive旋转等价和惯导速度复核 | `tools/check_acceleration_start_pose.py`、`tools/check_chcnav_velocity_replay.py` |
 
 修改前先查看目标包的 CMakeLists、package.xml、配置与 README，确认真实可执行名和是否安装。build/install 中的副本不是编辑入口。
+
+## 独立显示仓库维护（2026-10-17）
+
+显示源码位于[starry1N/fsd-visualization-code](https://github.com/starry1N/fsd-visualization-code)私有子模块，挂载路径仍为`fsd-visualization-code/`。显示环境加载与启动依赖检查在`scripts/environment.sh`、`start.sh`；无线安装/启动在`radio_link/{setup_linux,start_linux}.sh`，配置在`radio_link/radio.yaml`；路径均相对子模块。实际设备映射、USB拓扑、资源观察及共存验证边界见[DEVICE_COEXISTENCE](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。新克隆或更新执行`git submodule update --init --recursive`，需要私有仓库访问权限。

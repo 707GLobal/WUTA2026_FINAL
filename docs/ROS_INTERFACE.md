@@ -114,7 +114,7 @@ CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧�
 | `/fsd_radio/extension/rx` | std_msgs/String，JSON对象 | 无线接收端 → 明确接入的扩展消费者；不自动转发到驾驶/任务话题 |
 | `/fsd_radio/status` | std_msgs/String，JSON状态 | Linux无线节点 → 只读监控，含串口连接、字节数、重试、未知输入 |
 
-扩展ROS接口Reliable/Volatile/depth10，显示输入Best Effort/Volatile/depth1；波特率9600 8N1，默认双向合计UART预算160字节/秒。PC只经Foxglove SDK发布本地显示通道，不向ROS发布TF。压缩、量化、抽样和数据年龄语义见[无线模块说明](../fsd-visualization-code/radio_link/README.md)。本机默认COM3；Linux无线串口启动时显式指定，不能复用惯导设备。
+扩展ROS接口Reliable/Volatile/depth10，显示输入Best Effort/Volatile/depth1；波特率9600 8N1，默认双向合计UART预算160字节/秒。PC只经Foxglove SDK发布本地显示通道，不向ROS发布TF。压缩、量化、抽样和数据年龄语义见[无线模块说明](../fsd-visualization-code/radio_link/README.md)。本机默认COM3；Linux无线串口从radio.yaml读取，可通过启动参数覆盖，不能复用惯导设备。
 
 ## 任务诊断兼容约定
 
@@ -136,3 +136,7 @@ ZLG桥将当前会话的有效VCU模式写到`/run/zlgcan_bridge`。CAN接口默
 ### 固定路径的启动参考（2026-10-13）
 
 `path_generator`的acceleration/skidpad/ebs均支持`anchor_frame=start_pose|map`。start_pose是规划内部冻结的二维参考，不新增TF边或pose发布者；YAML的X前、Y左、yaw=0沿启动车头。最终Lane和planned日志保持map，路径速度仍为沿路径目标速度。公共华测ENU/车体速度及map→odom同原点关系不变。Trackdrive使用真实map锥桶中心线，不再次应用启动旋转。
+
+## 独立显示部署补充（2026-10-17）
+
+显示及无线实现改由`fsd-visualization-code`子模块维护，现有ROS消息、话题与发布所有权不变。Linux E22串口从`radio_link/radio.yaml`的`serial.linux_port`读取，`--port`可覆盖；本机配置为CH340的by-id路径，避免占用惯导。`/fsd_radio/status`的`connected`仅证明串口打开，`tx_bytes`证明写入UART；实际双向状态还需`rx_bytes`、`peer_session`、`peer_age_s`及带ID扩展往返共同核对。设备共存证据见[DEVICE_COEXISTENCE](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。

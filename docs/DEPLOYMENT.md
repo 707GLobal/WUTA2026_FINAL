@@ -5,7 +5,7 @@
 
 ## 1. 环境与文件
 
-E22低带宽双向遥测与Windows Foxglove显示可选组件见[radio_link部署说明](../fsd-visualization-code/radio_link/README.md)。它独立启动，Linux只消费既有ROS显示/定位数据，Windows默认COM3；不由全车入口自动启用。Linux串口必填，避免占用惯导端口；原生显示输入与bridge输入须按实际运行模式选择。2.4kbps仅提供降采样预览，首次接入需完成说明中的串口、ROS/TF、空口与Foxglove验收。
+E22低带宽双向遥测与Windows Foxglove显示可选组件见[radio_link部署说明](../fsd-visualization-code/radio_link/README.md)。它独立启动，Linux只消费既有ROS显示/定位数据，Windows默认COM3；不由全车入口自动启用。Linux串口通过radio.yaml配置或启动参数覆盖，避免占用惯导端口；原生显示输入与bridge输入须按实际运行模式选择。2.4kbps仅提供降采样预览，首次接入需完成说明中的串口、ROS/TF、空口与Foxglove验收。
 
 ROS 2 Humble、系统Python3.10、colcon/ament、PCL/Eigen/tf2、RViz及包内声明依赖；相机推理还需匹配 GPU/CUDA/TensorRT 与 engine 的依赖。构建产物不可跨机器直接视为可用。
 
@@ -101,3 +101,11 @@ ros2 run tf2_ros tf2_echo map base_link
 根全车入口仍读取`WUTA-FSD/ros2_ws/src/planning/path_generator/config/path_generator.yaml`。acceleration/skidpad/ebs当前anchor_frame均为start_pose，需重新构建path_generator并重启规划进程。Skidpad当前仍为U-turn测试，关闭u_turn_test.enabled才运行标准八字；新配置使用发车原点，不能直接配旧绝对地图锚点。Trackdrive地图/TF保持现有坐标策略。隔离回归：加载ROS及FSD install后用系统Python运行`tools/check_acceleration_start_pose.py`；不启动实车入口。
 
 今日源码调参和实车历史快照分开记录，见[今日工作记录](工作记录_2026-10-13.md)。本次不重新启动设备或重跑回归。
+
+## 独立显示仓库与E22部署（2026-10-17）
+
+显示目录现为[starry1N/fsd-visualization-code](https://github.com/starry1N/fsd-visualization-code)私有子模块。新克隆或拉取拆分提交后在主仓库执行`git submodule update --init --recursive`，GitHub账号需具备该仓库读取权限；已有目录若含未提交改动，先保存本地内容再更新，勿强制覆盖。原有`start_full_fsd.sh`和显示挂载路径不变。
+
+独立显示：`bash fsd-visualization-code/start.sh mode:=bridge`。本仓库内自动复用相邻已有FSD安装环境；外置部署设置`FSD_SETUP`。无线先执行`bash fsd-visualization-code/radio_link/setup_linux.sh`，再执行`bash fsd-visualization-code/radio_link/start_linux.sh --mode bridge`。两者独立，不启动算法或传感器。
+
+本机E22默认by-id路径`/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0`写入`radio.yaml`，目前解析为ttyUSB1；惯导仍是Prolific ttyUSB0，不得混用。CH340无唯一序列号，多个同型号适配器需重新核对；BRLTTY两个服务本机已屏蔽。串口打开与TX增加不等于对端收到，需检查RX及peer会话并完成Ping/Pong。相机/雷达接口没有直接重叠，但未完成同时满载对照验证，详细证据见[共存检查](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。

@@ -12,3 +12,7 @@
 	path = fsd_startup
 	url = https://github.com/starry1N/WUTA-FSD-CLI.git
 	branch = main
+[submodule "fsd-visualization-code"]
+	path = fsd-visualization-code
+	url = https://github.com/starry1N/fsd-visualization-code.git
+	branch = main

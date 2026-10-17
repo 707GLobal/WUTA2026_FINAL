@@ -14,7 +14,7 @@
 | `WUTA-FSD/ros2_ws/src` | FSD 算法、消息、CAN 与第三方定位源码；Git 子模块 |
 | `humble-chcnav-cgi_ros2pkg` | 华测通信解析、自定义消息及 FSD 坐标/速度桥；Git 子模块 |
 | `zlgcan_bridge` | ZLG USB CAN 与虚拟 SocketCAN 双向桥、报文日志；Git 子模块 |
-| `fsd-visualization-code` | RViz 配置、只读显示桥、安全图像插件 |
+| `fsd-visualization-code` | 独立私有Git子模块：RViz、只读显示桥、诊断面板、安全图像插件和可选E22/Foxglove |
 | `fsd_startup` | 独立 [WUTA-FSD-CLI](https://github.com/starry1N/WUTA-FSD-CLI) Git 子模块；启动管理界面、预检查、所属进程清理与日志生命周期；全栈部署委托根脚本 |
 | `tools` | 配置审计、任务监控、启动监管、仿真适配、评估与回归 |
 | `config` / `models` | 车辆与传感器外参、显示配置、机器相关推理引擎 |
@@ -448,3 +448,9 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 职责迁移必须同步修改生产者、消费者、消息/话题、启动入口和验证，避免双发布者、悬空订阅或半迁移。地图/冻结中心线跨任务reset目前没有统一协议，新增会话复用时需联动生命周期，不只修改日志。Python/C++并行维护的后端共用业务契约，变更后核对差异；第三方库优先经配置与适配层接入。
 
 文件/功能/所有权变化同步维护本页和CODE_MAP；接口变化更新ROS_INTERFACE；算法机制、调参和部署细节分别放DESIGN、模块config和DEPLOYMENT。阅读入口见根 [AGENTS.md](../AGENTS.md) 与 [AGENT_GUIDE](AGENT_GUIDE.md)。首次详细分析及静态限制保留在 [模块职责分析报告](模块职责分析报告_2026-10-13.md)。
+
+## 独立显示仓库（2026-10-17）
+
+`fsd-visualization-code/`现为[独立私有仓库](https://github.com/starry1N/fsd-visualization-code)子模块，包含RViz配置、只读显示桥、诊断面板、安全图像插件及可选E22/Foxglove组件。主项目保持现有目录与启动路径，消息和驾驶结果的所有权不变；显示源码在子仓库维护，先推送子仓库，再提交主仓库指针。
+
+`start.sh`复用`scripts/environment.sh`，优先显式`FSD_SETUP`，缺少消息时尝试相邻FSD安装空间，启动前检查必需消息。无线`radio_link/start_linux.sh`复用同一加载器，独立安装/启动，不随RViz或全车入口自动启用。设备隔离证据与局限见[共存检查](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。
