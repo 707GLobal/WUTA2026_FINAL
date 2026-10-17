@@ -4,6 +4,8 @@ ROS 2 Humble + RViz 的独立工作区，适用于已运行的 WUTA-FSD 算法�
 
 主包名：`fsd_visualization`，另含 `fsd_rviz_plugins` 图像显示插件。版本：0.1.0。依赖 ROS 2、RViz、PyYAML，以及 WUTA 的消息定义（兼容桥接模式和接口测试需要 `wuta_msgs` / `autoware_msgs`）。源码不包含模型、FSD 算法源码或机器专用的安装环境。
 
+2026年10月17日新增可选[ E22无线遥测与Foxglove组件](radio_link/README.md)：Linux按既有显示话题量化抽样，Windows从COM3接收并经Foxglove官方SDK显示；双向JSON扩展独立于驾驶话题。无线组件独立安装/启动，原有build.sh/start.sh行为不变，Linux无线串口必须显式指定。
+
 ## 1. 解压、构建与打开 RViz
 
 将交付的压缩包解压到任意目录，进入 `fsd-visualization-code`。需要已有 ROS 2 Humble；FSD 自定义消息由你现有的 FSD 安装空间提供。

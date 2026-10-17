@@ -1,0 +1,37 @@
+# Paths relative to this file. Keep the existing viewer YAML as the topic authority.
+topics_config: ../src/fsd_visualization/config/topics.yaml
+rviz_config: ../src/fsd_visualization/config/fsd.rviz
+display_mode: native  # Match the supplied RViz layers; --mode bridge follows the viewer bridge.
+velocity_topic: /chcnav/velocity  # real-car source; override for a different deployment.
+serial:
+  pc_port: COM3
+  linux_port: ""  # REQUIRED at launch; never guess the INS serial port.
+  baud: 9600
+link:
+  bytes_per_second: 160  # aggregate, BOTH directions including framing and retries.
+  fragment_bytes: 96
+  response_timeout: 4.0
+  turnaround_seconds: 0.25
+  retries: 2
+  extension_queue: 8
+  max_message_bytes: 4096
+  assembly_timeout: 120.0
+foxglove:
+  host: 127.0.0.1
+  port: 8765
+  control_port: 8766
+  stale_seconds: 10.0
+geometry:
+  quantization_m: 0.05
+  cache_markers: 256
+  text_chars: 64
+  snapshot_bytes: 1200  # compressed application bytes, before packet framing.
+layers:
+  vehicle: {interval: 1.0, weight: 4}
+  fused: {interval: 3.0, weight: 2, markers: 12, points: 12}
+  control: {interval: 3.0, weight: 2, markers: 4, points: 12}
+  guided: {interval: 8.0, weight: 1, markers: 6, points: 12}
+  map: {interval: 15.0, weight: 1, markers: 48, points: 64}
+  centerline: {interval: 10.0, weight: 1, markers: 4, points: 48}
+  path: {interval: 8.0, weight: 1, markers: 4, points: 48}
+  trajectory: {interval: 15.0, weight: 1, markers: 3, points: 48}

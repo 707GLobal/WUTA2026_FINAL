@@ -104,6 +104,18 @@ CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧�
 
 可选 KISS/NDT：`/kiss/odometry`、`/kiss/odometry_sanitized`、`/ndt/pose`、`/ndt/path`、`/ndt/aligned_cloud`、`/initialpose`。源码中部分输入仍为 `/hesai/pandar`，当前 M1 部署若启用必须先适配。它们不属于默认实车运行链。
 
+## 无线显示扩展接口 2026年10月17日
+
+`fsd-visualization-code/radio_link`消费既有标准MarkerArray、PoseStamped、TwistStamped和TF，排除图像与原始点云；不增加ConeMap、车辆TF、MissionState或驾驶指令的发布者。native模式消费配置中的原生`*_viz`，bridge模式复用原显示生成器的`/fsd_visualization/*`映射，要求已有显示桥生产这些数据。
+
+| Topic | 类型 | 发布者与消费者 |
+| --- | --- | --- |
+| `/fsd_radio/extension/tx` | std_msgs/String，JSON对象 | Linux扩展生产者 → 无线发送队列 → PC `/radio/extension/rx` |
+| `/fsd_radio/extension/rx` | std_msgs/String，JSON对象 | 无线接收端 → 明确接入的扩展消费者；不自动转发到驾驶/任务话题 |
+| `/fsd_radio/status` | std_msgs/String，JSON状态 | Linux无线节点 → 只读监控，含串口连接、字节数、重试、未知输入 |
+
+扩展ROS接口Reliable/Volatile/depth10，显示输入Best Effort/Volatile/depth1；波特率9600 8N1，默认双向合计UART预算160字节/秒。PC只经Foxglove SDK发布本地显示通道，不向ROS发布TF。压缩、量化、抽样和数据年龄语义见[无线模块说明](../fsd-visualization-code/radio_link/README.md)。本机默认COM3；Linux无线串口启动时显式指定，不能复用惯导设备。
+
 ## 任务诊断兼容约定
 
 `/system/mission_state` 的消息结构不变。`description` 保留 lap、mode_selected、

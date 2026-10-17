@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fsd-radio-link"
+version = "0.1.0"
+description = "Bounded bidirectional E22 telemetry for ROS 2 and Foxglove"
+requires-python = ">=3.10"
+dependencies = ["pyserial==3.5", "PyYAML>=6,<7"]
+
+[project.optional-dependencies]
+pc = ["foxglove-sdk==0.29.2"]
+test = ["pytest>=7,<10", "websockets>=14,<18"]
+
+[project.scripts]
+fsd-radio = "fsd_radio.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["fsd_radio*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
