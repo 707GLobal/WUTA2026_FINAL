@@ -116,6 +116,8 @@ CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧�
 
 扩展ROS接口Reliable/Volatile/depth10，显示输入Best Effort/Volatile/depth1；波特率9600 8N1，默认双向合计UART预算160字节/秒。PC只经Foxglove SDK发布本地显示通道，不向ROS发布TF。压缩、量化、抽样和数据年龄语义见[无线模块说明](../fsd-visualization-code/radio_link/README.md)。本机默认COM3；Linux无线串口从radio.yaml读取，可通过启动参数覆盖，不能复用惯导设备。
 
+2026-10-19：ROS话题与所有权不变，几何无线消息改为schema 2必要字段二进制。固定frame/量化步长用双端一致配置及16位指纹检查，点坐标与必要尺寸5厘米量化，源时间保留毫秒；外观样式、标签和临时显示ID由PC生成。Linux抽样计数仅保留在`/fsd_radio/status.sampling`；PC `/radio/layers`显示schema、解码对象数与新鲜度。扩展JSON和外层分片/ACK仍保留，刷新间隔不提高，先升级接收端再升级发送端。
+
 ## 任务诊断兼容约定
 
 `/system/mission_state` 的消息结构不变。`description` 保留 lap、mode_selected、

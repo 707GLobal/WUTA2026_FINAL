@@ -7,6 +7,8 @@
 
 E22低带宽双向遥测与Windows Foxglove显示可选组件见[radio_link部署说明](../fsd-visualization-code/radio_link/README.md)。它独立启动，Linux只消费既有ROS显示/定位数据，Windows默认COM3；不由全车入口自动启用。Linux串口通过radio.yaml配置或启动参数覆盖，避免占用惯导端口；原生显示输入与bridge输入须按实际运行模式选择。2.4kbps仅提供降采样预览，首次接入需完成说明中的串口、ROS/TF、空口与Foxglove验收。
 
+radio_link 0.2.0使用必要几何schema 2，升级时先更新/重启PC接收端，再更新/重启Linux发送端；保留双端一致的fixed_frame和量化步长，PC样式在`radio.yaml:foxglove.styles`配置。旧PC不能解码新几何消息，新PC兼容旧消息，升级后应通过`/radio/layers`中各图层的`schema`字段确认已收到schema 2。
+
 ROS 2 Humble、系统Python3.10、colcon/ament、PCL/Eigen/tf2、RViz及包内声明依赖；相机推理还需匹配 GPU/CUDA/TensorRT 与 engine 的依赖。构建产物不可跨机器直接视为可用。
 
 | 项目 | 当前默认路径 / 来源 |

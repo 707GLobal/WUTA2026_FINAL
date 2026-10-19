@@ -39,6 +39,7 @@
 | 显示桥 / 布局 | `fsd-visualization-code/src/fsd_visualization/fsd_visualization/{bridge,configuration}.py`；`fsd-visualization-code/src/fsd_visualization/config/{topics.yaml,fsd.rviz}` |
 | 安全图像插件 | `fsd-visualization-code/src/fsd_rviz_plugins/src/safe_image.cpp` |
 | E22双向无线显示 / Foxglove | `fsd-visualization-code/radio_link/fsd_radio/{ros_sender,geometry,protocol,link,transport,worker,pc_receiver,foxglove_view,cli}.py`；配置 `radio_link/radio.yaml`，部署与测试见 `radio_link/README.md` |
+| 无线必要字段压缩 / 本地样式 | `fsd-visualization-code/radio_link/fsd_radio/essentials.py`；样式 `radio.yaml:foxglove.styles`，编码成本复现 `radio_link/tools/compare_bandwidth.py`，回归 `radio_link/tests/test_essentials.py` |
 | 配置来源和话题一致性 | `tools/check_fsd_module_configs.py`、`tools/test_fsd_module_configs.py` |
 | 参数枚举审计 | `tools/audit_algorithm_parameters.py`；生成清单见 docs 现有 JSON/CSV |
 | 实车任务只读监控 | `tools/monitor_mission.py` |
