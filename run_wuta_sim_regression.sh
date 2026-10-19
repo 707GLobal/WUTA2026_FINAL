@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BATCH="$ROOT/logs/sessions/batch_$(date +%Y%m%d_%H%M%S)"
+BATCH="$ROOT/wuta_logs/sessions/batch_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BATCH"
-echo "$BATCH" > "$ROOT/logs/sessions/latest_batch.txt"
+echo "$BATCH" > "$ROOT/wuta_logs/sessions/latest_batch.txt"
 for scenario in straight_pid noisy trackdrive velocity_dropout pose_dropout empty_path nan_path emergency; do
     mission=acceleration
     [[ "$scenario" != trackdrive ]] || mission=trackdrive
-    run_dir="$ROOT/logs/$mission/$(date +%Y%m%d_%H%M%S_%N)"
+    run_dir="$ROOT/wuta_logs/$mission/$(date +%Y%m%d_%H%M%S)_${scenario}"
     ln -s "$run_dir" "$BATCH/$scenario"
     args=(--duration 22 --mission acceleration --speed 2 --output "$run_dir")
     case "$scenario" in

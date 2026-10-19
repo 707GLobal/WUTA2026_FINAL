@@ -62,6 +62,7 @@ CHILD_PIDS=(); CHILD_NAMES=()
 item_label() { echo "$1"; }
 report_ok() { :; }
 check_children() { kill -0 "${CHILD_PIDS[0]}"; }
+log_path_for() { echo "$LOG_DIR/$1.log"; }
 '''
             harness += function + r'''
 start_group zlg_can /usr/bin/python3 -c 'import time; time.sleep(30)'

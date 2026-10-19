@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read-only console monitor for the full FSD launcher."""
 import argparse
+import json
 import time
 from datetime import datetime
 
@@ -29,14 +30,38 @@ def main():
     parser.add_argument('--run-dir', default=os.environ.get('FSD_RUN_DIR'))
     args = parser.parse_args()
     console = Console()
-    missions = []
-    history_path = Path(args.run_dir) / "mission_history.json" if args.run_dir else None
-    if history_path is not None and history_path.exists():
-        import json
+    run_dir = Path(args.run_dir) if args.run_dir else None
+    names = {0: 'trackdrive', 1: 'skidpad', 2: 'acceleration',
+             3: 'inspection', 4: 'ebs_test'}
+    reported_mismatch = set()
+
+    def record_fallback_mission(mission):
+        """Only used when the run started in pending because no VCU cache existed."""
+        if run_dir is None:
+            return
+        path = run_dir / 'run.json'
         try:
-            missions = json.loads(history_path.read_text())
-        except (OSError, ValueError) as exc:
-            console.emit(f'历史赛项记录读取失败：{exc}')
+            data = json.loads(path.read_text())
+            current = data.get('mission')
+        except (OSError, ValueError, AttributeError):
+            return
+        if current == mission:
+            return
+        if current:
+            if mission not in reported_mismatch:
+                console.emit(f'本次日志已归为 {current}，忽略后续赛项 {mission}')
+                reported_mismatch.add(mission)
+            return
+        data['mission'] = mission
+        data['mission_source'] = 'fallback_observed'
+        data['mission_observed_at'] = datetime.now().astimezone().isoformat()
+        try:
+            temporary = path.with_suffix('.tmp')
+            temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+            temporary.replace(path)
+            console.emit(f'补记赛项：{mission}')
+        except OSError as exc:
+            console.emit(f'赛项补记失败：{exc}')
     # Import here so formatting logic can be tested without ROS or hardware.
     import rclpy
     from rclpy.node import Node
@@ -57,20 +82,11 @@ def main():
 
         def on_state(self, msg):
             self.last_state = time.monotonic()
-            # This observer owns only mission_history.json, never run.json.
             tokens = dict(token.split('=', 1) for token in msg.description.split() if '=' in token)
-            if tokens.get('mode_selected') == '1' and history_path is not None:
-                names = {0: 'trackdrive', 1: 'skidpad', 2: 'acceleration', 3: 'inspection', 4: 'ebs_test'}
+            if tokens.get('mode_selected') == '1':
                 mission = names.get(msg.mission_mode)
-                if mission and (not missions or missions[-1]['mission'] != mission):
-                    missions.append({'mission': mission, 'observed_at': datetime.now().astimezone().isoformat()})
-                    try:
-                        temporary = history_path.with_suffix('.tmp')
-                        import json
-                        temporary.write_text(json.dumps(missions, ensure_ascii=False, indent=2))
-                        temporary.replace(history_path)
-                    except OSError as exc:
-                        console.emit(f'赛项记录失败：{exc}')
+                if mission:
+                    record_fallback_mission(mission)
 
             console.changed('状态广播', '在线')
             # The counter proves receipt even if GO was consumed between broadcasts.

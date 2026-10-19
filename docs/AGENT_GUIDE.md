@@ -12,7 +12,7 @@
 - 当前根入口不启动KISS/NDT；LOC_KISS_ICP枚举仍用于EKF分支。
 - 当前算法参数从各模块源码config读取，旧统一参数入口不生效。
 - 当前控制器采用分赛项PID，没有 simple_p 和全局限速入口；赛项调试/路径分支及具体参数以实际模块config为准，不能默认恢复旧比赛值。
-- 日志按赛项/时间归档，轨迹目录拼写为 `jrajectory`；任务监控输出统一进入 `manager.log`，历史日志不自动迁移。详见 [LOGGING](LOGGING.md)。
+- 日志按赛项/时间写入 `wuta_logs/`（时间戳精确到秒），轨迹目录为 `trajectory`；FSD 模块日志在 `fsd_modules`，设备日志在 `zlgCAN_log`/`chcnav_log`。任务监控输出统一进入 `manager.log`，历史日志不自动迁移。详见 [LOGGING](LOGGING.md)。
 - WUTA-SIM源码不在当前仓库；仿真使用外部SIM_SETUP及本地EffortVehicle适配。
 - 任务机职责迁移是方案，除雷达心跳ready外主要迁移仍未完成。
 

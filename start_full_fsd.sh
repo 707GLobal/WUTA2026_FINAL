@@ -44,6 +44,10 @@ REUSE_INS=0
 CHILD_PIDS=()
 CHILD_NAMES=()
 OBSERVER_PIDS=()
+FSD_MODULES_DIR=""
+EXTERNAL_LOG_DIR=""
+ZLG_LOG_DIR=""
+CHCNAV_LOG_DIR=""
 
 # Progress messages distinguish a running process from verified sensor data.
 item_label() {
@@ -52,7 +56,8 @@ item_label() {
         zlg_can) echo 'ZLG CAN 硬件桥' ;;
         map_to_odom) echo 'map → odom 静态 TF' ;;
         base_to_zed) echo '车辆 → ZED 外参 TF' ;;
-        perception) echo 'ZED / M1 驱动与感知算法组' ;;
+        perception) echo '感知算法组' ;;
+        perception_drivers) echo 'ZED / M1 驱动组' ;;
         visualization) echo 'FSD 可视化：fsd-visualization-code（相机 / 雷达 / 赛道 / 规划 / 控制）' ;;
         ekf) echo 'EKF 定位滤波' ;;
         localization_manager) echo '定位管理' ;;
@@ -69,11 +74,33 @@ item_label() {
 
 report_ok() { printf '[成功] %s\n' "$*"; }
 
+log_path_for() {
+    [[ -n "$FSD_MODULES_DIR" ]] || { echo ""; return 0; }
+    case "$1" in
+        perception) echo "$FSD_MODULES_DIR/perception/perception.log" ;;
+        perception_drivers) echo "$EXTERNAL_LOG_DIR/perception_drivers.log" ;;
+        ekf) echo "$FSD_MODULES_DIR/localization/ekf.log" ;;
+        localization_manager) echo "$FSD_MODULES_DIR/localization/localization_manager.log" ;;
+        cone_map_builder) echo "$FSD_MODULES_DIR/mapping/cone_map_builder.log" ;;
+        boundary_detector) echo "$FSD_MODULES_DIR/planning/boundary_detector.log" ;;
+        path_generator) echo "$FSD_MODULES_DIR/planning/path_generator.log" ;;
+        controller) echo "$FSD_MODULES_DIR/control/controller.log" ;;
+        can_interface) echo "$FSD_MODULES_DIR/system/can_interface.log" ;;
+        mission_manager) echo "$FSD_MODULES_DIR/system/mission_manager.log" ;;
+        map_to_odom) echo "$EXTERNAL_LOG_DIR/tf_map_odom.log" ;;
+        base_to_zed) echo "$EXTERNAL_LOG_DIR/tf_base_zed.log" ;;
+        visualization) echo "$EXTERNAL_LOG_DIR/visualization.log" ;;
+        zlg_can) echo "$ZLG_LOG_DIR/bridge.log" ;;
+        chcnav) echo "$CHCNAV_LOG_DIR/driver.log" ;;
+        *) echo "${FSD_MODULES_DIR:-}/system/$1.log" ;;
+    esac
+}
+
 show_failure_logs() {
     local name file
     for name in "$@"; do
-        file="${LOG_DIR:-}/$name.log"
-        [[ -f "$file" ]] || continue
+        file="$(log_path_for "$name")"
+        [[ -n "$file" && -f "$file" ]] || continue
         printf '\n--- %s：最近日志 (%s) ---\n' "$(item_label "$name")" "$file" >&2
         tail -30 "$file" >&2 || true
     done
@@ -91,8 +118,8 @@ on_error() {
     local code="$1" line="$2" command="$3"
     printf '[失败] 命令执行失败：退出码=%s，脚本行=%s\n命令：%s\n' \
         "$code" "$line" "$command" >&2
-    if [[ -n "${LOG_DIR:-}" ]]; then
-        printf '本次日志目录：%s\n' "$LOG_DIR" >&2
+    if [[ -n "${RUN_DIR:-}" ]]; then
+        printf '本次日志目录：%s\n' "$RUN_DIR" >&2
     fi
     exit "$code"
 }
@@ -113,7 +140,7 @@ and topic configuration. --no-rviz disables it;
 --reuse-ins uses an existing INS bridge and still verifies its odometry output.
 An existing ZLG CAN bridge on the selected interface is verified and reused.
 Otherwise a new bridge is started via sudo. External bridges survive FSD shutdown.
-Ctrl-C stops only processes started by this script. Logs are in logs/<mission>/<run time>/ (pending until archive).
+Ctrl-C stops only processes started by this script. Logs are in wuta_logs/<mission>/<YYYYmmdd_HHMMSS>/.
 EOF
 }
 
@@ -151,9 +178,14 @@ if [[ "$ACTION" != status && "$ACTION" != stop && "$ACTION" != print_config ]]; 
     fi
     : "${FSD_RUN_DIR:?日志收集入口必须传入运行目录}"
     RUN_DIR="$FSD_RUN_DIR"
-    LOG_DIR="$RUN_DIR/modules"
+    FSD_MODULES_DIR="$RUN_DIR/fsd_modules"
+    EXTERNAL_LOG_DIR="$RUN_DIR/external_log"
+    ZLG_LOG_DIR="$RUN_DIR/zlgCAN_log"
+    CHCNAV_LOG_DIR="$RUN_DIR/chcnav_log"
     export ROS_LOG_DIR="$RUN_DIR/ros"
-    mkdir -p "$LOG_DIR" "$ROS_LOG_DIR" "$RUN_DIR/configs" "$RUN_DIR/jrajectory" "$RUN_DIR/artifacts"
+    mkdir -p "$FSD_MODULES_DIR" "$EXTERNAL_LOG_DIR" "$ZLG_LOG_DIR" "$CHCNAV_LOG_DIR" \
+        "$ROS_LOG_DIR" "$RUN_DIR/configs" "$RUN_DIR/artifacts"
+    [[ "$SENSOR_ONLY" == 1 ]] || mkdir -p "$RUN_DIR/trajectory"
 fi
 
 load_module_settings() {
@@ -418,7 +450,7 @@ export LD_LIBRARY_PATH="/usr/local/cuda-11.8/targets/x86_64-linux/lib:/home/wuta
 export PYTHONPATH="$HARDWARE_DEPS:${PYTHONPATH:-}"
 
 mkdir -p "$RUNTIME_DIR" "$ROS_LOG_DIR"
-mkdir -p "$LOG_DIR"
+mkdir -p "$FSD_MODULES_DIR"
 printf '%s %s\n' "$$" "$(proc_start_time "$$")" > "$SUPERVISOR_FILE"
 
 cleanup() {
@@ -493,26 +525,30 @@ check_children() {
 start_group() {
     local name="$1"
     shift
+    local log_file
+    log_file="$(log_path_for "$name")"
+    mkdir -p "$(dirname "$log_file")"
     printf '[启动] %s ...\n' "$(item_label "$name")"
     if [[ "$name" == zlg_can ]]; then
         # Elevate before creating the bridge session. The root supervisor waits
         # for the actual bridge and forwards shutdown to its whole process group.
-        sudo -n /usr/bin/python3 "$ROOT/tools/run_privileged_group.py" "$@" > "$LOG_DIR/$name.log" 2>&1 &
+        sudo -n /usr/bin/python3 "$ROOT/tools/run_privileged_group.py" "$@" > "$log_file" 2>&1 &
     else
-        setsid "$@" > "$LOG_DIR/$name.log" 2>&1 &
+        setsid "$@" > "$log_file" 2>&1 &
     fi
     local pid=$!
     CHILD_PIDS+=("$pid")
     CHILD_NAMES+=("$name")
     sleep 0.3
     check_children
-    report_ok "$(item_label "$name")：进程已启动（PID=$pid）；日志：$LOG_DIR/$name.log"
+    report_ok "$(item_label "$name")：进程已启动（PID=$pid）；日志：$log_file"
 }
 
 wait_topic() {
     local topic="$1" seconds="${2:-15}" label="${3:-$1}"
     if (( $# >= 3 )); then shift 3; else shift "$#"; fi
-    local diagnostic="$LOG_DIR/topic_${topic//\//_}.log" code=0
+    local diagnostic="$FSD_MODULES_DIR/system/topic_${topic//\//_}.log" code=0
+    mkdir -p "$(dirname "$diagnostic")"
     local message_type
     case "$topic" in
         "$LIDAR_TOPIC") message_type=sensor_msgs/msg/PointCloud2 ;;
@@ -573,7 +609,8 @@ reconnect_can_bridge() {
         [[ "$(proc_start_time "$bridge_pid")" == "$expected" ]] || fail '已有 CAN 桥在检查时退出，未打开第二个设备实例' zlg_can
         # External bridge is deliberately not registered in CHILD_PIDS:
         # FSD shutdown must not stop a bridge owned by another terminal.
-        printf '[复用] 外部 CAN 桥：PID=%s，接口=%s；退出 FSD 时保留该桥。\n' "$bridge_pid" "$CAN_IFACE" > "$LOG_DIR/zlg_can.log"
+        printf '[复用] 外部 CAN 桥：PID=%s，接口=%s；退出 FSD 时保留该桥。报文日志由外部桥配置决定。\n' \
+            "$bridge_pid" "$CAN_IFACE" > "$ZLG_LOG_DIR/bridge.log"
         report_ok "已复用外部 CAN 桥：$CAN_IFACE（PID=$bridge_pid）；接口已就绪，收报请查看独立桥终端或 candump $CAN_IFACE"
         return
     fi
@@ -581,12 +618,13 @@ reconnect_can_bridge() {
     if pgrep -x zlg_can_bridge >/dev/null; then
         fail '仍有 ZLG CAN 桥进程，无法独占设备并重连'
     fi
-    start_group zlg_can bash "$ROOT/zlgcan_bridge/start_zlg_bridge.sh" "--iface=$CAN_IFACE"
+    start_group zlg_can bash "$ROOT/zlgcan_bridge/start_zlg_bridge.sh" \
+        "--iface=$CAN_IFACE" "--log-dir=$ZLG_LOG_DIR"
     for ((attempt=0; attempt<300; attempt++)); do
         check_children
-        if grep -Fq '[main] 就绪:' "$LOG_DIR/zlg_can.log"; then
+        if grep -Fq '[main] 就绪:' "$ZLG_LOG_DIR/bridge.log"; then
             check_existing_can || fail "CAN 桥初始化完成，但 $CAN_IFACE 接口未就绪" zlg_can
-            report_ok "CAN 盒已重新打开并初始化：$CAN_IFACE；VCU 收报情况请查看 $LOG_DIR/zlg_can.log"
+            report_ok "CAN 盒已重新打开并初始化：$CAN_IFACE；VCU 收报情况请查看 $ZLG_LOG_DIR/bridge.log"
             return
         fi
         sleep 0.1
@@ -599,9 +637,10 @@ if [[ "$REUSE_INS" == 1 ]]; then
     report_ok '复用外部华测链路；将检查惯导输出话题'
 else
     if [[ "${FSD_INS_DIAGNOSTICS:-1}" == 1 ]]; then
-        export CHCNAV_DIAGNOSTIC_DIR="$RUN_DIR/artifacts/chcnav_diagnostic"
+        export CHCNAV_DIAGNOSTIC_DIR="$CHCNAV_LOG_DIR/diagnostics"
     fi
-    start_group chcnav bash "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh" --no-build "--port=$INS_PORT" "--log-dir=$RUN_DIR/artifacts/chcnav"
+    start_group chcnav bash "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh" \
+        --no-build "--port=$INS_PORT" "--log-dir=$CHCNAV_LOG_DIR"
 fi
 
 if [[ "$SENSOR_ONLY" == 0 ]]; then
@@ -616,7 +655,10 @@ fi
 
 PERCEPTION_ARGS=(config_root:="$FSD_WS/src" model_path:="$MODEL" calibration_path:="$CALIBRATION"
     zed_publish_tf:=false zed_publish_map_tf:=false)
-start_group perception ros2 launch detection_fusion fusion_modules_hardware.launch.py "${PERCEPTION_ARGS[@]}"
+start_group perception_drivers ros2 launch detection_fusion fusion_modules_hardware.launch.py \
+    "${PERCEPTION_ARGS[@]}" start_drivers:=true start_algorithms:=false
+start_group perception ros2 launch detection_fusion fusion_modules_hardware.launch.py \
+    "${PERCEPTION_ARGS[@]}" start_drivers:=false start_algorithms:=true
 if [[ "${FSD_PARALLEL_CHECKS:-0}" == 1 ]]; then
     wait_independent_sensor_topics
     wait_topic "$FUSION_TOPIC" 20 '检测融合输出' perception
@@ -633,7 +675,7 @@ if [[ "$SENSOR_ONLY" == 0 ]]; then
     start_group ekf ros2 run robot_localization ekf_node --ros-args \
         -r __node:=ekf_node \
         --params-file "$FSD_WS/src/localization/localization_manager/config/ekf.yaml" \
-        -p "debug_out_file:=$RUN_DIR/modules/ekf_debug.txt"
+        -p "debug_out_file:=$FSD_MODULES_DIR/localization/ekf_debug.txt"
     start_group localization_manager ros2 run localization_manager localization_manager_node
     wait_topic /localization/pose 20 '定位输出' ekf localization_manager chcnav
     start_group cone_map_builder ros2 run cone_map_builder cone_map_builder_node --ros-args \
@@ -684,7 +726,7 @@ PY
         bash "$VIS_WS/start.sh" "${VIS_ARGS[@]}"
 fi
 
-report_ok "全栈启动检查完成，已启动 ${#CHILD_PIDS[@]} 个进程组。日志：$LOG_DIR"
+report_ok "全栈启动检查完成，已启动 ${#CHILD_PIDS[@]} 个进程组。日志：$RUN_DIR"
 if [[ "$SENSOR_ONLY" == 0 ]]; then
     echo '[提示] 任务仍需满足就绪条件、由 VCU 选择模式，再按 RES GO。'
 fi

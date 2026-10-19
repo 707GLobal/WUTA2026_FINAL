@@ -32,7 +32,7 @@ def test_module_edits_are_visible_and_mismatch_rejected(tmp_path):
     with pytest.raises(ValueError,match='最大转角'):manifest(controller=f)
 
 def test_hardware_launch_loads_source_configs_without_tuning_overrides():
-    m=load_launch();context=LaunchContext();context.launch_configurations.update(config_root=str(SRC),model_path='',calibration_path=str(ROOT/'config/camera_lidar.yaml'),detector_backend='auto',adapter_backend='cpp',fusion_backend='cpp',start_drivers='false',zed_publish_tf='false',zed_publish_map_tf='false')
+    m=load_launch();context=LaunchContext();context.launch_configurations.update(config_root=str(SRC),model_path='',calibration_path=str(ROOT/'config/camera_lidar.yaml'),detector_backend='auto',adapter_backend='cpp',fusion_backend='cpp',start_drivers='false',start_algorithms='true',zed_publish_tf='false',zed_publish_map_tf='false')
     nodes=[]
     def node(**kw):nodes.append(kw);return kw
     with patch.object(m,'Node',node),patch.object(m,'get_package_share_directory',return_value='/tmp/wuta_unused_driver'):
@@ -60,7 +60,7 @@ def test_new_launcher_does_not_override_edited_perception_values(tmp_path):
         dst=config_root/relative;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(SRC/relative,dst)
     lidar=config_root/'perception/lidar_detection/config/lidar_detection.yaml';doc=yaml.safe_load(lidar.read_text());doc['lidar_detection_node']['ros__parameters']['voxel_leaf_size']=.12;lidar.write_text(yaml.safe_dump(doc))
     fusion=config_root/'perception/detection_fusion/config/fusion.yaml';doc=yaml.safe_load(fusion.read_text());doc['detection_fusion_node']['ros__parameters']['min_color_probability']=.73;fusion.write_text(yaml.safe_dump(doc))
-    m=load_launch();context=LaunchContext();context.launch_configurations.update(config_root=str(config_root),model_path=str(ROOT/'models/yolov8sp2-int8.engine'),calibration_path=str(ROOT/'config/camera_lidar.yaml'),detector_backend='auto',adapter_backend='cpp',fusion_backend='cpp',start_drivers='false',zed_publish_tf='false',zed_publish_map_tf='false')
+    m=load_launch();context=LaunchContext();context.launch_configurations.update(config_root=str(config_root),model_path=str(ROOT/'models/yolov8sp2-int8.engine'),calibration_path=str(ROOT/'config/camera_lidar.yaml'),detector_backend='auto',adapter_backend='cpp',fusion_backend='cpp',start_drivers='false',start_algorithms='true',zed_publish_tf='false',zed_publish_map_tf='false')
     nodes=[]
     with patch.object(m,'Node',lambda **kw:nodes.append(kw)),patch.object(m,'get_package_share_directory',return_value='/tmp/wuta_unused_driver'):
         m.setup(context)

@@ -127,12 +127,13 @@ go_count、go_pending、lidar_ready、localization_ready 及地图/定位/RACE�
 原因值包括 lidar、localization、mode、go、map_closed、map_quality、centerline、
 pose、confidence、ndt、lap、emergency、finished。
 `mission_monitor` 只订阅状态和自检，不发布赛项、GO或控制指令。状态事件统一进入
-manager.log，观察到的实际赛项写 mission_history.json。目录与归档见 [LOGGING](LOGGING.md)。
+manager.log；仅在启动前模式缓存不可用时，把首次观察到的赛项补写进 `run.json.mission`。
+目录与归档见 [LOGGING](LOGGING.md)。
 
 
 ## 模式会话缓存
 
-ZLG桥将当前会话的有效VCU模式写到`/run/zlgcan_bridge`。CAN接口默认启用`mode_cache`，等待2秒恢复模式，实时模式优先；仅模式可恢复，RES GO/急停不缓存。默认`max_age_sec=0`不按时间过期，仍验证桥PID、启动时间、接口及会话身份；缓存不代表VCU持续在线。
+ZLG桥将当前会话的有效VCU模式写到`/run/zlgcan_bridge`。CAN接口默认启用`mode_cache`，等待2秒恢复模式，实时模式优先；仅模式可恢复，RES GO/急停不缓存。默认`max_age_sec=0`不按时间过期，仍验证桥PID、启动时间、接口及会话身份；缓存不代表VCU持续在线。日志启动入口只读同一缓存决定赛项目录，不发布任务状态。
 
 
 ### 固定路径的启动参考（2026-10-13）

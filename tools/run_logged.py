@@ -10,6 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'fsd_startup'))
 from log_context import RunLog, append_manager_event
+import mode_cache
 
 
 def main():
@@ -19,9 +20,24 @@ def main():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--mission')
     parser.add_argument('--output')
+    parser.add_argument('--can-config')
     options, _ = parser.parse_known_args(command)
-    run = RunLog.create(ROOT, mode=mode, args=command,
-                        mission=options.mission if mode == 'simulation' else None,
+    mission = options.mission if mode == 'simulation' else None
+    mission_source = 'cli' if mission else None
+    vcu_mode = None
+    if mode == 'hardware':
+        config = options.can_config or (
+            ROOT / 'WUTA-FSD/ros2_ws/src/system/can_interface/config/can_interface.yaml')
+        info, _ = mode_cache.read_mission(config)
+        if info:
+            mission = info['mission']
+            mission_source = 'vcu_mode_cache'
+            vcu_mode = info['vcu_mode']
+        else:
+            mission_source = 'fallback_pending'
+            print('[日志警告] 未读到有效 VCU 模式缓存，本次日志先落 pending。', file=sys.stderr)
+    run = RunLog.create(ROOT, mode=mode, args=command, mission=mission,
+                        mission_source=mission_source, vcu_mode=vcu_mode,
                         path=options.output if mode == 'simulation' else None)
     environment = dict(os.environ, FSD_RUN_DIR=str(run.path), FSD_LOG_OWNER='collector')
     with (run.path / 'manager.log').open('a', buffering=1) as log:

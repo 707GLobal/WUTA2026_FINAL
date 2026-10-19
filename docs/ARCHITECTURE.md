@@ -19,7 +19,7 @@
 | `tools` | 配置审计、任务监控、启动监管、仿真适配、评估与回归 |
 | `config` / `models` | 车辆与传感器外参、显示配置、机器相关推理引擎 |
 | `docs` | 开发文档、专题记录与历史验证证据 |
-| `.runtime` / `logs` / `log` | 运行状态、运行日志与构建产物；不能当作源码入口 |
+| `.runtime` / `wuta_logs` / `log` | 运行状态、当前运行日志与构建产物；历史 `logs/` 仅作证据，不能当作源码入口 |
 
 外部依赖包含 ZED/RoboSense 已安装 overlay、GPU 推理依赖和 WUTA-SIM 已安装环境。复制此仓库不能自动得到全部驱动与模拟器。
 `build`、`install`及各工作空间内同名目录是生成产物，修改入口应为源码，不能编辑安装副本作为功能交付。
@@ -138,7 +138,7 @@ flowchart TD
 | `detection_fusion/node.py` | PythonROS队列/订阅/发布后端，调用纯算法核心 |
 | `detection_fusion/core.py` | 变换、协方差、投影、associate、fuse_position、guided_cluster等可复用Python函数 |
 | `detection_fusion/calibration.py` | 校验camera-from-lidar的schema/帧/旋转与单位，生成静态TF参数 |
-| `launch/fusion_modules_hardware.launch.py` | 根实车入口使用的组装层：读取模块源码config，选择检测/适配/融合后端，启动外部驱动并发布相机雷达外参 |
+| `launch/fusion_modules_hardware.launch.py` | 根实车入口使用的组装层：读取模块源码config，选择检测/适配/融合后端，按 start_drivers/start_algorithms 分组启动外部驱动与感知算法，并发布相机雷达外参 |
 | `launch/fusion.launch.py` | 仅Python融合，驱动/检测/TF由外部提供的独立入口 |
 | `launch/fusion_mapping.launch.py` | 另一组检测/双目/融合/建图入口，包含自身覆盖，不属于默认根全车链 |
 | `launch/fusion_hardware.launch.py` | 保留的另一硬件/参数/可选建图及显示入口；不能混淆配置来源或与默认链重复启动 |
@@ -346,6 +346,7 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 | 模式/GO的ROS表达 | can_interface | 真实CAN输入，GO不恢复/模拟重放 |
 | emergency事件 | CAN与任务机自检 | 有意支持多个故障源，消费者锁存；不推广成一般业务状态双所有者 |
 | 运行目录/run.json、manager.log | 管理器或直接入口采集器，复用RunLog | 同一次运行一个生命周期所有者，模块仅写分配的数据 |
+| 启动时的赛项目录分类 | `fsd_startup/mode_cache.py` | 只读ZLG模式缓存；任务状态仍由mission_manager发布 |
 | ZLG会话模式缓存 | ZLG写入、CAN读取 | 不存GO/急停，不证明VCU当前在线 |
 
 几类质量检查分别负责不同产品：建图筛选稳定观测，边界验收可用中心线，任务机决定赛项迁移；规划限目标速度，控制限实际指令，CAN处理协议饱和。输入/语义不同的分层检查不应机械合并，语义相同的权威结论应由一个模块生产。
@@ -358,9 +359,38 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 
 ## 7. 日志与诊断边界
 
-运行目录由日志上下文组件创建，管理器或直接入口提供唯一管理日志写入者。
-模块输出与结果通过路径参数进入统一目录，算法不负责移动运行目录。
-未选赛项先记录 pending，进程停止并关闭文件后按实际赛项归档。
+运行目录由日志上下文组件在 `wuta_logs/` 下创建，管理器或直接入口提供唯一管理日志写入者。
+正常启动前读取 ZLG 模式缓存确定赛项；缓存不可用才先记录 pending，之后归档。
+
+```text
+wuta_logs/
+├── pending/<YYYYmmdd_HHMMSS>/          # 仅模式缓存不可用时兜底
+├── <赛项>/<YYYYmmdd_HHMMSS>/           # 正常运行
+│   ├── manager.log
+│   ├── manager.events.jsonl
+│   ├── manager.radio.events.jsonl
+│   ├── run.json
+│   ├── configs/
+│   ├── trajectory/
+│   ├── fsd_modules/
+│   ├── external_log/
+│   ├── zlgCAN_log/
+│   ├── chcnav_log/
+│   ├── ros/
+│   ├── artifacts/
+│   └── validation/                     # 仅仿真
+├── sensor_only/<YYYYmmdd_HHMMSS>/
+└── sessions/
+    ├── <YYYYmmdd_HHMMSS>/manager.log
+    └── batch_*/
+```
+
+- 目录时间戳精确到秒；同一秒内重名时追加 `_01`、`_02` 等序号，不再使用微秒。
+- `trajectory/segments/<赛项>/<YYYYmmdd_HHMMSS>_<序号>/` 记录赛项切换或规划节点重启后的新分段，分析时应递归读取。
+- `fsd_modules/` 仅保存 FSD 包节点输出，按 perception/localization/mapping/planning/control/system 分类；外部驱动、静态 TF 和 RViz 在 `external_log/`。
+- `zlgCAN_log/`、`chcnav_log/` 由既有设备日志的 `--log-dir` 指向本次运行目录，不再写包内日志。
+- `run.json` 记录 `mission`、`mission_source`、`vcu_mode`、`mode`、`args` 和目录索引；`manager.events.jsonl` 保留完整 CLI 事件，`manager.radio.events.jsonl` 只保留无线必要事件。
+- 模块输出与结果通过路径参数进入统一目录，算法不负责移动运行目录。
 任务机产生权威门控诊断；只读监控和界面仅消费诊断，不反向控制任务。
 监控异常只告警，车辆模块仍按原监管规则运行。详见 [运行日志](LOGGING.md)。
 
@@ -404,9 +434,10 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 | `start_fsd_manager.sh`、`fsd_startup/manager.py` | 操作会话、预检查、调用根入口、输出收集、登记进程、停止和日志收尾；失败返回菜单，不自行重建驾驶链 |
 | `fsd_startup/checks.py` | 配置/依赖/设备/占用/产物预检查；复用根tools的配置manifest |
 | `fsd_startup/runtime_checks.py` | 消费根入口进度和诊断更新展示，区分进程启动、收到数据、任务放行 |
-| `fsd_startup/{terminal_ui,dashboard}.py` | 键盘交互和ROS只读遥测/参数/日志展示；模块配置选择器消费既有审计manifest，组件日志选择器读取本次模块日志；操作委托Manager |
+| `fsd_startup/{terminal_ui,dashboard}.py` | 键盘交互和ROS只读遥测/参数/日志展示；模块配置选择器消费既有审计manifest，组件日志选择器递归读取本次`fsd_modules`；操作委托Manager |
 | `fsd_startup/{processes,privilege}.py` | PID启动身份、后代定位/精确清理及提权适配；不全局杀ROS |
-| `fsd_startup/log_context.py` | RunLog目录/快照/run.json与停止后归档，文件系统生命周期；算法不移动目录 |
+| `fsd_startup/log_context.py` | RunLog目录/快照/run.json与pending兜底归档，文件系统生命周期；算法不移动目录 |
+| `fsd_startup/mode_cache.py` | 启动前读取ZLG模式缓存，仅用于赛项目录分类；不发布任务状态 |
 | `tools/{run_logged,run_privileged_group}.py` | 直接入口输出采集与提权进程组监管，复用已有生命周期/监管机制 |
 | `tools/snapshot_run_configs.py` | 记录本次实际配置及部署资产，不生成新的调参来源 |
 | `fsd_startup/{autostart.sh,window.sh,install_ui.sh}` | 管理器自启、窗口入口和界面依赖安装 |
@@ -419,7 +450,7 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 | --- | --- |
 | `tools/check_fsd_module_configs.py` | manifest校验模块配置来源、管线话题与共享车辆契约；新启动入口复用它，不重新定义配置真值 |
 | `tools/audit_algorithm_parameters.py` | 源码参数声明/配置审计，生成清单；不是运行时覆盖层 |
-| `tools/{mission_diagnostics,gnss_status,monitor_mission}.py` | 权威诊断格式化、状态含义和只读变化监控；监控仅记录赛项历史，不决定GO/发车/圈次 |
+| `tools/{mission_diagnostics,gnss_status,monitor_mission}.py` | 权威诊断格式化、状态含义和只读变化监控；仅当模式缓存兜底时补写 `run.json.mission`，不维护赛项历史，不决定GO/发车/圈次 |
 | `tools/{check_acceleration_start_pose,check_chcnav_velocity_replay}.py` | 直线起步锚点与惯导速度专项复核 |
 | `start_wuta_sim_validation.sh`、`tools/run_wuta_sim_validation.py` | 外部SIM overlay加载、独立域、测试节点/输入替代、记录/故障场景/评估编排；不得并入真实硬件控制域 |
 | `tools/wuta_sim_effort_vehicle.py` | 仿真开度车辆适配，复用外部VehicleModel，不是实车标定模型 |

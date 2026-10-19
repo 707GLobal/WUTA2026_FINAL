@@ -22,7 +22,7 @@ def test_planner_switch_keeps_previous_csv_and_new_segments(ros, tmp_path):
         msg.pose.position.x = x
         msg.pose.orientation.w = 1.
         pose.publish(msg)
-    original = run/'jrajectory/driven.csv'
+    original = run/'trajectory/driven.csv'
     ros.wait(lambda: original.exists() and len(original.read_text().splitlines()) > 1,
              lambda: send_pose(1.))
     mode = MissionState()
@@ -31,24 +31,24 @@ def test_planner_switch_keeps_previous_csv_and_new_segments(ros, tmp_path):
     state.publish(mode)
     ros.spin(.15)
     original_content = original.read_text()
-    ros.wait(lambda: list((run/'jrajectory/segments/acceleration').glob('*/driven.csv')),
+    ros.wait(lambda: list((run/'trajectory/segments/acceleration').glob('*/driven.csv')),
              lambda: send_pose(2.))
     ros.spin(.2)
     assert original.read_text() == original_content
-    segments = list((run/'jrajectory/segments/acceleration').glob('*/driven.csv'))
+    segments = list((run/'trajectory/segments/acceleration').glob('*/driven.csv'))
     assert any('2.000000' in p.read_text() for p in segments)
     # Returning to a previously recorded mission must not reopen/truncate root CSV.
     mode.mission_mode = MissionState.MISSION_TRACKDRIVE
     state.publish(mode)
     ros.spin(.15)
-    ros.wait(lambda: list((run/'jrajectory/segments/trackdrive').glob('*/driven.csv')),
+    ros.wait(lambda: list((run/'trajectory/segments/trackdrive').glob('*/driven.csv')),
              lambda: send_pose(3.))
     assert original.read_text() == original_content
 
 
 def test_restarted_planner_preserves_existing_run_files(ros, tmp_path):
     run = tmp_path/'run'
-    folder = run/'jrajectory'
+    folder = run/'trajectory'
     folder.mkdir(parents=True)
     original = folder/'driven.csv'
     original.write_text('existing-payload\n')

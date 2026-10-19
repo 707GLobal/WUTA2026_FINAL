@@ -158,7 +158,7 @@ def run(frame, mission, baseline=None, u_turn=False):
             pose(0.75, -0.29, math.radians(-173))
             first = request_path()
             compare_path(first, baseline, 0.75, -0.29, math.radians(-173))
-            with (Path(record_dir) / 'jrajectory/planned.csv').open() as f:
+            with (Path(record_dir) / 'trajectory/planned.csv').open() as f:
                 records = list(csv.DictReader(f))
             assert len(records) == len(first.waypoints)
             for row, waypoint in zip(records, first.waypoints):

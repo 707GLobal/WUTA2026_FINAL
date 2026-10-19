@@ -15,6 +15,18 @@ def main():
     ap=argparse.ArgumentParser();ap.add_argument('--duration',type=float,default=40);ap.add_argument('--mission',choices=['acceleration','trackdrive','skidpad'],default='acceleration');ap.add_argument('--fault',choices=['none','velocity_dropout','pose_dropout','empty_path','nan_path','emergency'],default='none');ap.add_argument('--speed',type=float,default=2.);ap.add_argument('--start-y',type=float,default=.3);ap.add_argument('--start-yaw',type=float,default=.05);ap.add_argument('--noise',type=float,default=.05);ap.add_argument('--output',default=None);ap.add_argument('--stationary',action='store_true');ap.add_argument('--legacy-colors',action='store_true');a=ap.parse_args()
     if a.duration<15 or not 0<a.speed<=20:ap.error('duration>=15；0<speed<=20')
     out=Path(os.environ['FSD_RUN_DIR']);procs=[];observers=[];logs=[];snap={}
+    categories={'ekf':'localization','localization':'localization',
+                'detector':'perception','fusion':'perception',
+                'mapping':'mapping','boundary':'planning','planning':'planning',
+                'controller':'control','mission':'system'}
+    external={'vehicle','ins','lidar','bridge','camera','lidar_tf','map_tf','cam_tf'}
+    def log_path(name):
+        if name in external or name == 'rosbag':
+            folder = out/'validation' if name == 'rosbag' else out/'external_log'
+        else:
+            folder = out/'fsd_modules'/categories.get(name, 'system')
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder/(name+'.log')
     def start(name,pkg=None,exe=None,params=None,config=None,remaps=None,script=None):
         cmd=['/usr/bin/python3',str(script)] if script else [str(Path(get_package_prefix(pkg))/'lib'/pkg/exe)]
         cmd+=['--ros-args']
@@ -22,7 +34,7 @@ def main():
             copy=out/'configs'/(name+'_config'+str(i)+'.yaml');copy.write_text(Path(f).read_text());cmd+=['--params-file',str(copy)]
         for k,v in (params or {}).items():cmd+=['-p',k+':='+('true' if v is True else 'false' if v is False else str(v))]
         for k,v in (remaps or {}).items():cmd+=['-r',k+':='+v]
-        f=(out/'modules'/(name+'.log')).open('w');logs.append(f);p=subprocess.Popen(cmd,stdout=f,stderr=subprocess.STDOUT,start_new_session=True);procs.append((name,p));snap[name]={'command':cmd,'pid':p.pid,'executable_sha256':hashlib.sha256(Path(cmd[0]).read_bytes()).hexdigest()};return p
+        f=log_path(name).open('w');logs.append(f);p=subprocess.Popen(cmd,stdout=f,stderr=subprocess.STDOUT,start_new_session=True);procs.append((name,p));snap[name]={'command':cmd,'pid':p.pid,'executable_sha256':hashlib.sha256(Path(cmd[0]).read_bytes()).hexdigest()};return p
     config=yaml.safe_load((SRC/'control/controller/config/controller.yaml').read_text());vp=config['controller_node']['ros__parameters']
     if a.stationary:
         for mission in ['acceleration','ebs','skidpad','trackdrive']:
@@ -79,7 +91,7 @@ def main():
         for name,xyz,q,parent,child in [('lidar_tf',[0,0,1],[0,0,0,1],'base_link','lidar'),('map_tf',[0,0,0],[0,0,0,1],'map','odom'),('cam_tf',[0,0,.5],[-.5,.5,-.5,.5],'base_link','sim_camera_left_optical_frame')]:
             cmd=['/opt/ros/humble/lib/tf2_ros/static_transform_publisher']
             for k,v in zip(['x','y','z','qx','qy','qz','qw'],xyz+q):cmd+=['--'+k,str(v)]
-            cmd+=['--frame-id',parent,'--child-frame-id',child];f=(out/'modules'/(name+'.log')).open('w');logs.append(f);procs.append((name,subprocess.Popen(cmd,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)))
+            cmd+=['--frame-id',parent,'--child-frame-id',child];f=log_path(name).open('w');logs.append(f);procs.append((name,subprocess.Popen(cmd,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)))
         start('ekf','robot_localization','ekf_node',config=[SRC/'localization/localization_manager/config/ekf.yaml'],remaps={'__node':'ekf_node'})
         loc=start('localization','localization_manager','localization_manager_node')
         start('detector','lidar_detection','lidar_detection_node',config=[SRC/'perception/lidar_detection/config/lidar_detection.yaml'],params={'input_topic':'/hesai/pandar','output_topic':'/perception/lidar/cones_raw','use_ransac':False,'ground_z_threshold':-.95,'voxel_leaf_size':.1,'voxel_before_ground':False})
@@ -92,7 +104,7 @@ def main():
         observers.append(('mission_observer', subprocess.Popen(
             ['/usr/bin/python3', '-u', str(ROOT/'tools/monitor_mission.py'), '--run-dir', str(out)],
             start_new_session=True)))
-        f=(out/'modules'/'rosbag.log').open('w');logs.append(f);procs.append(('bag',subprocess.Popen(['ros2','bag','record','-o',str(out/'validation'/'rosbag'),'/hesai/pandar','/perception/camera/cones','/perception/camera/camera_info','/tf','/tf_static','/system/emergency','/sim/ground_truth','/chcnav/odometry','/chcnav/velocity','/localization/pose','/control/command','/planning/final_waypoints','/mapping/cone_map','/perception/fused/cones','/system/mission_state'],stdout=f,stderr=subprocess.STDOUT,start_new_session=True)))
+        f=log_path('rosbag').open('w');logs.append(f);procs.append(('bag',subprocess.Popen(['ros2','bag','record','-o',str(out/'validation'/'rosbag'),'/hesai/pandar','/perception/camera/cones','/perception/camera/camera_info','/tf','/tf_static','/system/emergency','/sim/ground_truth','/chcnav/odometry','/chcnav/velocity','/localization/pose','/control/command','/planning/final_waypoints','/mapping/cone_map','/perception/fused/cones','/system/mission_state'],stdout=f,stderr=subprocess.STDOUT,start_new_session=True)))
         (out/'validation'/'processes.json').write_text(json.dumps(snap,ensure_ascii=False,indent=2));t0=time.monotonic();last_sample=0
         with (out/'validation'/'telemetry.csv').open('w',newline='') as file:
             w=csv.writer(file);w.writerow(['elapsed','x','y','yaw','actual_speed','target_speed','angle_deg','effort','state','fault','distance_to_planned_path','cross_track_polyline_distance'])

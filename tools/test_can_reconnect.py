@@ -21,7 +21,7 @@ class CanReconnectTests(unittest.TestCase):
                 (root / 'running').touch()
             harness = r'''
 set -Eeuo pipefail
-ROOT="$PWD"; LOG_DIR="$PWD"; CAN_IFACE=can0
+ROOT="$PWD"; LOG_DIR="$PWD"; ZLG_LOG_DIR="$PWD"; CAN_IFACE=can0
 fail() { echo "FAIL $*" >> events; exit 1; }
 report_ok() { echo "OK $*" >> events; }
 can_bridge_pid() { [[ -f running ]] && echo 12345; }
@@ -36,8 +36,8 @@ sudo() {
 pgrep() { [[ -f running || "$FOREIGN" == 1 ]]; }
 start_group() {
     echo "START $*" >> events
-    : > "$LOG_DIR/zlg_can.log"
-    if [[ "$READY" == 1 ]]; then echo '[INFO ] [main] 就绪:' > "$LOG_DIR/zlg_can.log"; fi
+    : > "$ZLG_LOG_DIR/bridge.log"
+    if [[ "$READY" == 1 ]]; then echo '[INFO ] [main] 就绪:' > "$ZLG_LOG_DIR/bridge.log"; fi
 }
 check_children() { :; }
 check_existing_can() { [[ "$VALID" == 1 ]]; }

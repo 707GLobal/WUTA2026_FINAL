@@ -61,7 +61,7 @@ CLI源码独立为 [WUTA-FSD-CLI](https://github.com/starry1N/WUTA-FSD-CLI)，�
 
 RViz默认开启，无图形桌面用 `--no-rviz`；关闭RViz会触发全栈进程监管停止。只看传感器/感知可使用 `--sensor-only`，仍连接真实CAN桥和传感器，但不启动控制链。`--reuse-ins`复用外部惯导并验证输出，退出时保留外部进程。
 
-当前脚本不会伪造VCU选择或RES GO。运行先写 `logs/pending/<运行时间>/`，结束并关闭文件后按实际赛项归档到 `logs/<赛项>/<运行时间>/`。未选赛项保留 pending，多赛项归入 multi_mission，传感器模式归入 sensor_only。`manager.log` 收集启动和任务诊断，模块输出在 modules，轨迹在 jrajectory，配置副本在 configs；未运行时管理日志在 logs/sessions。详见 [运行日志](LOGGING.md)。`.runtime/full_fsd`保存监管状态。Ctrl-C按脚本清理本次进程。
+当前脚本不会伪造VCU选择或RES GO。启动前读取 ZLG 模式缓存，正常直接创建 `wuta_logs/<赛项>/<YYYYmmdd_HHMMSS>/`；缓存不可用时才先写 `wuta_logs/pending/<YYYYmmdd_HHMMSS>/` 并在收到实时模式后归档。传感器模式归入 sensor_only。`manager.log` 收集启动和任务诊断，FSD 模块输出在 fsd_modules，外部驱动/TF/RViz 在 external_log，轨迹在 trajectory（分段为 `segments/<赛项>/<YYYYmmdd_HHMMSS>_<序号>/`），配置副本在 configs，ZLG 在 zlgCAN_log，华测在 chcnav_log；未运行时管理日志在 wuta_logs/sessions。详见 [运行日志](LOGGING.md)。`.runtime/full_fsd`保存监管状态。Ctrl-C按脚本清理本次进程。
 
 ## 4. 运行检查
 
@@ -93,7 +93,7 @@ ros2 run tf2_ros tf2_echo map base_link
 
 默认ROS_DOMAIN_ID=157、ROS_LOCALHOST_ONLY=1，允许域101–232，通过项目域锁避免重入；用WUTA_SIM_DOMAIN覆盖，不能用硬件域0。source顺序是Humble→外部SIM→本仓库FSD local_setup。模拟器构建和源码维护属于外部依赖，不应在本仓库虚构WUTA-SIM目录。
 
-回归覆盖分赛项PID直线、噪声、trackdrive片段、速度断流、定位断流、空路径、NaN路径与急停；单次记录在 `logs/<赛项>/<运行时间>/`（元信息标记 simulation），包含配置、赛道副本、遥测、rosbag、节点日志与summary。批次索引和 results/report 保存到 `logs/sessions/batch_*`，场景链接指向赛项运行目录；单次 summary/telemetry/rosbag 在 validation 子目录。需要检查每个场景结果，不能只依据汇总脚本退出码。
+回归覆盖分赛项PID直线、噪声、trackdrive片段、速度断流、定位断流、空路径、NaN路径与急停；单次记录在 `wuta_logs/<赛项>/<YYYYmmdd_HHMMSS>/`（元信息标记 simulation），包含配置、赛道副本、遥测、rosbag、节点日志与summary。批次索引和 results/report 保存到 `wuta_logs/sessions/batch_*`，场景链接指向赛项运行目录；单次 summary/telemetry/rosbag 在 validation 子目录。需要检查每个场景结果，不能只依据汇总脚本退出码。
 
 详见 [仿真专题](WUTA_SIM验证与启动.md)。真实YOLO、真实CAN、标定、EBS制动和完整多圈不在上述短时回归的证明范围内。
 

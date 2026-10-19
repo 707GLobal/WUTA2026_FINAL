@@ -67,9 +67,11 @@ CAN旧指令重发风险已增加接口侧超时保护，但进程退出、通�
 
 ## 当前日志布局（2026-10-12）
 
-单次默认记录为 `logs/<赛项>/<运行时间>/`，run.json 标记 simulation。
-节点日志在 modules，规划/实驶CSV在 jrajectory，遥测/summary/rosbag在 validation，
-配置和赛道副本在 configs，地图结果在 artifacts。任务状态变化归入 manager.log。
-`--output` 仍可指定独立目录；回归批次在 logs/sessions/batch_* 保存链接和报告。
+单次默认记录为 `wuta_logs/<赛项>/<YYYYmmdd_HHMMSS>/`，run.json 标记 simulation。
+FSD 节点日志在 fsd_modules，外部仿真节点在 external_log，规划/实驶CSV在 trajectory
+（分段为 `segments/<赛项>/<YYYYmmdd_HHMMSS>_<序号>/`），
+遥测/summary/rosbag在 validation，配置和赛道副本在 configs，地图结果在 artifacts。
+任务状态变化归入 manager.log。`--output` 仍可指定独立目录；
+回归批次在 `wuta_logs/sessions/batch_*` 保存链接和报告。
 本文历史算法和测试结果不代表当前配置；当前采用分赛项PID，没有 --mode simple_p 参数。
 目录生命周期及本次验证见 [运行日志](LOGGING.md)。

@@ -13,7 +13,7 @@
 | 实车感知启动 | `perception/detection_fusion/launch/fusion_modules_hardware.launch.py` | 读取各模块 config；旧 `fusion_hardware.launch.py` 是另一入口，不能混用参数来源 |
 | 锥桶建图 | `mapping/cone_map_builder/src/cone_map_builder.cpp`、`include/cone_map_builder/cone_map_builder.hpp` | `config/cone_map_builder.yaml` |
 | 边界 / 中心线 | `planning/boundary_detector/src/boundary_detector_node.cpp`、`thirdparty/pathplanning` | `config/boundary_detector.yaml` |
-| 任务路径 / 速度 / 轨迹记录 | `planning/path_generator/src/path_generator_node.cpp` | `config/path_generator.yaml`；记录到 `logs/<赛项>/<运行时间>/jrajectory/` |
+| 任务路径 / 速度 / 轨迹记录 | `planning/path_generator/src/path_generator_node.cpp` | `config/path_generator.yaml`；记录到 `wuta_logs/<赛项>/<YYYYmmdd_HHMMSS>/trajectory/`，分段为 `trajectory/segments/<赛项>/<YYYYmmdd_HHMMSS>_<序号>/` |
 | 横纵向控制 | `control/controller/src/{controller_node,pure_pursuit,twist_filter}.cpp`、`include/controller/speed_pid.hpp` | `config/controller.yaml`；`test/test_speed_pid.cpp` |
 | 定位输出管理 | `localization/localization_manager/src/localization_manager.cpp` | `config/ekf.yaml`；不自主决定赛项定位模式 |
 | EKF / 第三方定位 | `localization/robot_localization`、`localization/kiss-icp` | robot_localization 原生测试/参数；KISS 是否启动由入口决定 |
@@ -26,7 +26,7 @@
 
 | 功能 | 入口 |
 | --- | --- |
-| 日志上下文 / 归档 | `fsd_startup/log_context.py`；`tools/run_logged.py`；说明见 [LOGGING](LOGGING.md) |
+| 日志上下文 / 归档 | `fsd_startup/log_context.py`（`run.json`、`manager.events.jsonl`、`manager.radio.events.jsonl`）；`fsd_startup/mode_cache.py`；`tools/run_logged.py`；结构见 [LOGGING](LOGGING.md) |
 | 任务诊断展示 | `tools/mission_diagnostics.py`；权威等待条件在 FSD mission_manager |
 | 实车编排 / 进程清理 | [start_full_fsd.sh](../start_full_fsd.sh) |
 | 纯键盘终端与自启 | 根 `start_fsd_manager.sh`；独立 [CLI子模块](https://github.com/starry1N/WUTA-FSD-CLI) 的 `fsd_startup/{manager,terminal_ui,dashboard,runtime_checks}.py`、`autostart.sh`；[开发指南](DEVELOPMENT.md#startup-development) |

@@ -200,6 +200,6 @@ bash -n start_fsd_manager.sh fsd_startup/autostart.sh fsd_startup/window.sh fsd_
 
 ### 5.8 日志与交付维护
 
-运行记录归 `RunLog` 管理；`manager.log`、`modules/`、`configs/`、`artifacts/`及 `jrajectory/` 沿用 [LOGGING](LOGGING.md) 的结构。任务诊断输出由管理器收集，UI不另建运行目录或第二套归档机制。
+运行记录归 `RunLog` 管理；`manager.log`、`fsd_modules/`、`external_log/`、`zlgCAN_log/`、`chcnav_log/`、`configs/`、`artifacts/`及 `trajectory/` 沿用 [LOGGING](LOGGING.md) 的结构。任务诊断输出由管理器收集，UI不另建运行目录或第二套归档机制。
 
 修改前查看主仓库和相关子模块状态，保留已有无关修改。改当前源码，不改build/install副本。改UI操作同步README和相关测试；改文件定位或职责同步ARCHITECTURE/CODE_MAP；改变真正的ROS接口才修改ROS_INTERFACE。

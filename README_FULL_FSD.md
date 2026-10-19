@@ -93,7 +93,7 @@ CAN 桥脚本需要 sudo 创建虚拟 SocketCAN 接口；本脚本在前台认�
 本机通过权限700且排除Git的本地askpass文件自动认证；不将口令写入日志。未配置本地辅助文件时，以入口实际认证提示为准。
 设备初始化通过不代表已收到 VCU 报文，应检查桥日志的 `VCU->FSD` 计数是否增长。
 CAN 接口会按现有配置发送上线心跳，控制帧由自检结果门控；脚本不会模拟
-VCU 模式或 RES GO。所有日志写入 `logs/<赛项>/<运行时间>/`，Ctrl-C 只关闭此入口
+VCU 模式或 RES GO。所有日志写入 `wuta_logs/<赛项>/<YYYYmmdd_HHMMSS>/`，Ctrl-C 只关闭此入口
 启动的进程。
 
 实测记录（2026-10-10）：华测 `/chcnav/odometry`、ZED 图像、M1 点云、YOLO 检测和融合话题均有真实消息；ZLG 桥已编译，完整 CAN 链路需在能输入 sudo 密码的终端启动。第三方华测解析器与 M1 驱动在限时测试收到中断信号时曾报告退出异常，进程均已结束。
@@ -129,16 +129,18 @@ ready、任务机收到 GO 的累计次数、GO 是否仍待处理、圈数、�
 
 仿真验证使用独立入口 `./start_wuta_sim_validation.sh`（默认40秒、2米/秒），
 与实车入口分开。`./run_wuta_sim_regression.sh` 执行基线和故障注入，记录写入
-`logs/<赛项>/<运行时间>/`（`run.json` 标记 simulation）。连接方式、模型适配和已知覆盖边界见
+`wuta_logs/<赛项>/<YYYYmmdd_HHMMSS>/`（`run.json` 标记 simulation）。连接方式、模型适配和已知覆盖边界见
 [WUTA-SIM验证与启动](docs/WUTA_SIM验证与启动.md)。
 
 ## 日志目录与职责
 
-运行先写 logs/pending/<运行时间>，停止并关闭日志后按实际赛项归档。
-启动检查和只读任务监控统一写 manager.log；模块输出在 modules，
-规划和实驶CSV在 jrajectory，配置在 configs，ROS日志在 ros，地图及惯导数据在 artifacts。
-多赛项归入 multi_mission，仅传感器归入 sensor_only；未启动车辆时管理日志在 sessions。
-轨迹后续段应递归读取 jrajectory/segments，不覆盖第一段数据。
+正常启动前读取 ZLG 模式缓存，直接创建 wuta_logs/<赛项>/<YYYYmmdd_HHMMSS>/；
+缓存不可用时才先写 pending，收到实时模式后归档。目录时间戳精确到秒，不使用微秒。
+启动检查和只读任务监控统一写 manager.log；FSD 模块输出在 fsd_modules，
+外部驱动/TF/RViz 在 external_log，规划和实驶CSV在 trajectory，配置在 configs，
+ROS日志在 ros，ZLG 在 zlgCAN_log，华测在 chcnav_log，地图等结果在 artifacts。
+仅传感器归入 sensor_only；未启动车辆时管理日志在 sessions。
+轨迹后续段为 `trajectory/segments/<赛项>/<YYYYmmdd_HHMMSS>_<序号>/`，应递归读取，不覆盖第一段数据。
 详见 [日志设计与验证](docs/LOGGING.md)。
 
 ## 2026-10-12 更新：惯导在线与GNSS门控
