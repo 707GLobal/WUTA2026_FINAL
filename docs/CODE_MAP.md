@@ -59,3 +59,5 @@
 ## CLI无线日志与传感器（0.4.0）
 
 CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_startup/manager.py:emit`、`tools/run_logged.py`；传感器源：`fsd_startup/dashboard.py:Telemetry.snapshot`。无线转发/磁盘确认：`fsd-visualization-code/radio_link/fsd_radio/cli_telemetry.py`；回归`radio_link/tests/test_cli_telemetry.py`。
+
+0.5.0必要日志规则位于`fsd_startup/log_context.py:necessary_radio_event`，原写入者生成`manager.radio.events.jsonl`；Manager状态字段`radio_log_events`定位当前源。完整性与筛选边界均在上述无线回归中验证。

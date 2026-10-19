@@ -150,3 +150,5 @@ ROS消息、话题和生产所有权不变。无线schema 3完整保留PoseStamp
 ## CLI无线日志与传感器（0.4.0）
 
 无线0.4.0不新增ROS订阅/驾驶出口：读取CLI的manager.events.jsonl与telemetry.json。PC增加`/radio/cli/log`（foxglove.Log）、`/radio/cli/sensors`、`/radio/cli/vehicle`、`/radio/cli/transfer`、`/radio/cli/health`；它们是PC SDK通道，不是ROS话题。日志保留CLI源端Unix纳秒时间，传感器各项保留Header时间或标未知；块封装时间和源端接收时间单列。L/b日志字节块、A持久化确认、cli_status JSON契约见无线README。
+
+0.5.0无线日志源改为`manager.radio.events.jsonl`必要事件子集，字段与L/b/A协议不变，使用独立stream ID避免与旧全文偏移混用。`/radio/cli/log`只含选中事件完整原文，CLI全部历史保留在Linux；传感器通道不受文本筛选影响。

@@ -5,7 +5,8 @@
 ```text
 logs/<赛项>/<YYYYmmdd_HHMMSS_微秒>/
   manager.log              启动、检查、任务诊断、停止与清理
-  manager.events.jsonl      同一写入者追加的完整CLI事件与Unix纳秒时间（无线增量源）
+  manager.events.jsonl      同一写入者追加的完整CLI事件与Unix纳秒时间（本地全文）
+  manager.radio.events.jsonl 必要CLI事件与原源时间（0.5.0无线增量源）
   run.json                 运行标识、实车/仿真、退出原因及目录索引
   mission_history.json     只读监控观察到的实际赛项及选择时间
   configs/                 输入配置副本及部署参数清单
@@ -91,4 +92,6 @@ Manager.emit在同一事件临界区追加原manager.log及manager.events.jsonl�
 
 CLI dashboard复用原订阅，将GNSS、惯导、雷达、相机、融合及车辆/任务摘要写入结构化telemetry.json字段；没有Header时标未知，接收时间单列，不替代采集时间。无线组件读取文件，不自行判定驾驶任务或增加原始传感器发布者。
 
-PC持久化原始事件与完整文字，业务确认后Linux推进字节偏移；重传去重、进程重启续传、积压及Foxglove有界缓存说明见[radio_link](../fsd-visualization-code/radio_link/README.md)。完整传输允许排队延迟，模块全文日志仍由modules目录保管，不与CLI实时日志混为同一转发源。
+0.5.0按用户要求只将必要事件写入独立`manager.radio.events.jsonl`：错误/警告及连续诊断上下文、任务监控变化、启动/退出汇总。菜单、窗口、逐项成功和普通构建输出不占无线。规则由同一log_context.py负责；manager.log及完整journal不删减，新子集使用独立stream ID。
+
+PC持久化收到的必要事件与其完整文字，业务确认后Linux推进字节偏移；重传去重、进程重启续传、积压及Foxglove有界缓存说明见[radio_link](../fsd-visualization-code/radio_link/README.md)。关键事件仍可能排队；未筛选的0.4.0 journal不再自动传输，全部CLI历史仍保留在Linux。

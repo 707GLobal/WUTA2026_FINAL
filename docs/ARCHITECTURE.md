@@ -461,3 +461,5 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 ## CLI无线日志与传感器（0.4.0）
 
 无线0.4.0在原CLI日志所有者处增加完整事件journal，在原dashboard只读采集中增加结构化传感器/车辆快照；显示子模块`radio_link/fsd_radio/cli_telemetry.py`只负责读取、编码、PC落盘确认和断点，不拥有运行、驾驶或任务结果。日志按字节偏移可靠转发，状态按最新值；PC上行仍仅响应轮询。
+
+0.5.0按用户要求在同一写入者的`log_context.py:necessary_radio_event`筛选必要事件，另存`manager.radio.events.jsonl`供无线读取；完整manager.log及manager.events.jsonl仍在Linux保存。筛选不改变驾驶或日志生命周期，接收协议和源时间规则不变。
