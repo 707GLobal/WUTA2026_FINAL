@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'fsd_startup'))
-from log_context import RunLog
+from log_context import RunLog, append_manager_event
 
 
 def main():
@@ -39,12 +39,15 @@ def main():
         signal.signal(signal.SIGTERM, forward)
         for line in child.stdout:
             log.write(line)
+            append_manager_event(run.path / 'manager.log', line, 'info')
             try:
                 print(line, end='', flush=True)
             except BrokenPipeError:
                 pass
         code = child.wait()
-        log.write(f'[管理] 运行结束，退出码={code}\n')
+        ended = f'[管理] 运行结束，退出码={code}\n'
+        log.write(ended)
+        append_manager_event(run.path / 'manager.log', ended, 'error' if code else 'info')
     try:
         path = run.finish(code, 'standalone_exit')
         print(f'本次日志目录：{path}', flush=True)

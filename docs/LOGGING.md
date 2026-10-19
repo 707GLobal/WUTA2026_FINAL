@@ -5,6 +5,7 @@
 ```text
 logs/<赛项>/<YYYYmmdd_HHMMSS_微秒>/
   manager.log              启动、检查、任务诊断、停止与清理
+  manager.events.jsonl      同一写入者追加的完整CLI事件与Unix纳秒时间（无线增量源）
   run.json                 运行标识、实车/仿真、退出原因及目录索引
   mission_history.json     只读监控观察到的实际赛项及选择时间
   configs/                 输入配置副本及部署参数清单
@@ -83,3 +84,11 @@ segments/<赛项>/<时间_序号>/。分析工具应递归读取 CSV，不只读
 `artifacts/chcnav_diagnostic/{parser,protocol,bridge}.jsonl`跟随运行目录归档，定位输入/解析/发布各层；记录语义见[惯导诊断](惯导临时诊断记录.md)。
 GNSS默认发布门槛由1改为0及状态机门控调整属于后续代码变更，不应引用日志重构阶段“控制回调未变”来证明其无变化。最终GNSS改动仅静态核对和定向编译，未做当前配置完整实车验收。
 各阶段证据和时间点统一见[10月12日工作记录](工作记录_2026-10-12.md)。
+
+## CLI无线增量日志与传感器（2026-10-19）
+
+Manager.emit在同一事件临界区追加原manager.log及manager.events.jsonl；直接全栈入口由原tools/run_logged.py输出收集器调用同一journal函数。追加函数位于CLI子模块log_context.py，不创建新日志生命周期。事件保留CLI记录时刻的Unix纳秒时间和完整原文，脚本报错与堆栈走同一路径。源端journal与PC续传断点需保留；删除源文件不能靠无线恢复。旧版未记录的源时间不补造。
+
+CLI dashboard复用原订阅，将GNSS、惯导、雷达、相机、融合及车辆/任务摘要写入结构化telemetry.json字段；没有Header时标未知，接收时间单列，不替代采集时间。无线组件读取文件，不自行判定驾驶任务或增加原始传感器发布者。
+
+PC持久化原始事件与完整文字，业务确认后Linux推进字节偏移；重传去重、进程重启续传、积压及Foxglove有界缓存说明见[radio_link](../fsd-visualization-code/radio_link/README.md)。完整传输允许排队延迟，模块全文日志仍由modules目录保管，不与CLI实时日志混为同一转发源。

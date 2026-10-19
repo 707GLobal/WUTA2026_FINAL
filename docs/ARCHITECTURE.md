@@ -457,3 +457,7 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 `start.sh`复用`scripts/environment.sh`，优先显式`FSD_SETUP`，缺少消息时尝试相邻FSD安装空间，启动前检查必需消息。无线`radio_link/start_linux.sh`复用同一加载器，独立安装/启动，不随RViz或全车入口自动启用。设备隔离证据与局限见[共存检查](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。
 
 无线组件0.3.0/schema 3在原`essentials.py`扩展精确纳秒时间、独立速度时间、每Marker时间差分和时钟epoch；原`foxglove_view.py`负责有界缓冲排序、SDK源时间、速度独立显示通道与同通道迟到丢弃。算法消息和权威发布者不变，详见[无线时间契约](../fsd-visualization-code/radio_link/README.md)。
+
+## CLI无线日志与传感器（0.4.0）
+
+无线0.4.0在原CLI日志所有者处增加完整事件journal，在原dashboard只读采集中增加结构化传感器/车辆快照；显示子模块`radio_link/fsd_radio/cli_telemetry.py`只负责读取、编码、PC落盘确认和断点，不拥有运行、驾驶或任务结果。日志按字节偏移可靠转发，状态按最新值；PC上行仍仅响应轮询。

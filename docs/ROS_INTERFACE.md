@@ -146,3 +146,7 @@ ZLG桥将当前会话的有效VCU模式写到`/run/zlgcan_bridge`。CAN接口默
 ## 无线源时间契约（2026-10-19，0.3.0）
 
 ROS消息、话题和生产所有权不变。无线schema 3完整保留PoseStamped、TwistStamped及每个保留Marker的header.stamp（纳秒），速度与定位分别标时；frame_locked Marker也固定在其源时刻查询TF。PC的`/radio/state`以定位源时间、`/radio/speed`以速度源时间写SDK log_time，对象SceneEntity.timestamp取原Marker时间；默认缓冲3秒，配置与边界见无线README。源时间为0或无Header时不能从接收端补采集时间，计入未知时间诊断。扩展JSON增加source_stamp_ns/clock_domain/time_origin字段，缺省入队时间明确标为enqueue；应用生产者提供的源时间优先。来自不同时间基准的数据不能直接对齐。
+
+## CLI无线日志与传感器（0.4.0）
+
+无线0.4.0不新增ROS订阅/驾驶出口：读取CLI的manager.events.jsonl与telemetry.json。PC增加`/radio/cli/log`（foxglove.Log）、`/radio/cli/sensors`、`/radio/cli/vehicle`、`/radio/cli/transfer`、`/radio/cli/health`；它们是PC SDK通道，不是ROS话题。日志保留CLI源端Unix纳秒时间，传感器各项保留Header时间或标未知；块封装时间和源端接收时间单列。L/b日志字节块、A持久化确认、cli_status JSON契约见无线README。

@@ -55,3 +55,7 @@
 显示源码位于[starry1N/fsd-visualization-code](https://github.com/starry1N/fsd-visualization-code)私有子模块，挂载路径仍为`fsd-visualization-code/`。显示环境加载与启动依赖检查在`scripts/environment.sh`、`start.sh`；无线安装/启动在`radio_link/{setup_linux,start_linux}.sh`，配置在`radio_link/radio.yaml`；路径均相对子模块。实际设备映射、USB拓扑、资源观察及共存验证边界见[DEVICE_COEXISTENCE](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。新克隆或更新执行`git submodule update --init --recursive`，需要私有仓库访问权限。
 
 无线源时间对齐（0.3.0）：编码在`fsd-visualization-code/radio_link/fsd_radio/essentials.py`，采样来源在`ros_sender.py`和`geometry.py`，缓冲/SDK时间在`foxglove_view.py`；回归`radio_link/tests/test_source_time.py`，可导入布局`radio_link/foxglove_layout.json`。
+
+## CLI无线日志与传感器（0.4.0）
+
+CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_startup/manager.py:emit`、`tools/run_logged.py`；传感器源：`fsd_startup/dashboard.py:Telemetry.snapshot`。无线转发/磁盘确认：`fsd-visualization-code/radio_link/fsd_radio/cli_telemetry.py`；回归`radio_link/tests/test_cli_telemetry.py`。
