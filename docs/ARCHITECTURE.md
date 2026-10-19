@@ -392,7 +392,7 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 | 显示`src/fsd_visualization/config/{topics.yaml,fsd.rviz}`、`src/fsd_rviz_plugins/src/safe_image.cpp` | 显示话题/布局与安全图像插件；修改显示优先走现有配置/桥/插件 |
 | 显示`radio_link/fsd_radio/{ros_sender,geometry,protocol,link,transport,worker}.py` | 2.4kbps无线显示传输：消费标准显示Marker与真实位姿/速度，采样TF、量化、限量、双向扩展；复用原显示配置生成器，不生产权威算法结果 |
 | 显示`radio_link/fsd_radio/{pc_receiver,foxglove_view,cli}.py` | Windows COM3接收及Foxglove官方SDK显示，独立扩展JSON接口；Linux串口必填，不读取惯导串口、不发布驾驶或任务控制指令 |
-| 显示`radio_link/fsd_radio/essentials.py` | 2026-10-19必要几何schema 2：二进制坐标/点差分、必要尺寸/姿态、来源色索引与时间；固定样式在PC生成，完整快照替换处理增删，新接收端兼容旧消息 |
+| 显示`radio_link/fsd_radio/essentials.py` | 2026-10-19必要几何schema 2/3：二进制坐标/点差分、必要尺寸/姿态、来源色索引与时间；固定样式在PC生成，完整快照替换处理增删，新接收端兼容旧消息 |
 
 华测、ZLG路径相对各自仓库；显示路径相对`fsd-visualization-code`。模型、物理标定与驱动overlay按实际入口选择，不能把包内样例或另一份显示配置当作正在加载的资产。
 
@@ -455,3 +455,5 @@ CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关�
 `fsd-visualization-code/`现为[独立私有仓库](https://github.com/starry1N/fsd-visualization-code)子模块，包含RViz配置、只读显示桥、诊断面板、安全图像插件及可选E22/Foxglove组件。主项目保持现有目录与启动路径，消息和驾驶结果的所有权不变；显示源码在子仓库维护，先推送子仓库，再提交主仓库指针。
 
 `start.sh`复用`scripts/environment.sh`，优先显式`FSD_SETUP`，缺少消息时尝试相邻FSD安装空间，启动前检查必需消息。无线`radio_link/start_linux.sh`复用同一加载器，独立安装/启动，不随RViz或全车入口自动启用。设备隔离证据与局限见[共存检查](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。
+
+无线组件0.3.0/schema 3在原`essentials.py`扩展精确纳秒时间、独立速度时间、每Marker时间差分和时钟epoch；原`foxglove_view.py`负责有界缓冲排序、SDK源时间、速度独立显示通道与同通道迟到丢弃。算法消息和权威发布者不变，详见[无线时间契约](../fsd-visualization-code/radio_link/README.md)。

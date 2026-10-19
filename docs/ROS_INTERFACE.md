@@ -116,7 +116,7 @@ CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧�
 
 扩展ROS接口Reliable/Volatile/depth10，显示输入Best Effort/Volatile/depth1；波特率9600 8N1，默认双向合计UART预算160字节/秒。PC只经Foxglove SDK发布本地显示通道，不向ROS发布TF。压缩、量化、抽样和数据年龄语义见[无线模块说明](../fsd-visualization-code/radio_link/README.md)。本机默认COM3；Linux无线串口从radio.yaml读取，可通过启动参数覆盖，不能复用惯导设备。
 
-2026-10-19：ROS话题与所有权不变，几何无线消息改为schema 2必要字段二进制。固定frame/量化步长用双端一致配置及16位指纹检查，点坐标与必要尺寸5厘米量化，源时间保留毫秒；外观样式、标签和临时显示ID由PC生成。Linux抽样计数仅保留在`/fsd_radio/status.sampling`；PC `/radio/layers`显示schema、解码对象数与新鲜度。扩展JSON和外层分片/ACK仍保留，刷新间隔不提高，先升级接收端再升级发送端。
+2026-10-19（0.2.0历史；当前schema 3见末节）：ROS话题与所有权不变，几何无线消息改为schema 2必要字段二进制。固定frame/量化步长用双端一致配置及16位指纹检查，点坐标与必要尺寸5厘米量化，源时间保留毫秒；外观样式、标签和临时显示ID由PC生成。Linux抽样计数仅保留在`/fsd_radio/status.sampling`；PC `/radio/layers`显示schema、解码对象数与新鲜度。扩展JSON和外层分片/ACK仍保留，刷新间隔不提高，先升级接收端再升级发送端。
 
 ## 任务诊断兼容约定
 
@@ -142,3 +142,7 @@ ZLG桥将当前会话的有效VCU模式写到`/run/zlgcan_bridge`。CAN接口默
 ## 独立显示部署补充（2026-10-17）
 
 显示及无线实现改由`fsd-visualization-code`子模块维护，现有ROS消息、话题与发布所有权不变。Linux E22串口从`radio_link/radio.yaml`的`serial.linux_port`读取，`--port`可覆盖；本机配置为CH340的by-id路径，避免占用惯导。`/fsd_radio/status`的`connected`仅证明串口打开，`tx_bytes`证明写入UART；实际双向状态还需`rx_bytes`、`peer_session`、`peer_age_s`及带ID扩展往返共同核对。设备共存证据见[DEVICE_COEXISTENCE](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。
+
+## 无线源时间契约（2026-10-19，0.3.0）
+
+ROS消息、话题和生产所有权不变。无线schema 3完整保留PoseStamped、TwistStamped及每个保留Marker的header.stamp（纳秒），速度与定位分别标时；frame_locked Marker也固定在其源时刻查询TF。PC的`/radio/state`以定位源时间、`/radio/speed`以速度源时间写SDK log_time，对象SceneEntity.timestamp取原Marker时间；默认缓冲3秒，配置与边界见无线README。源时间为0或无Header时不能从接收端补采集时间，计入未知时间诊断。扩展JSON增加source_stamp_ns/clock_domain/time_origin字段，缺省入队时间明确标为enqueue；应用生产者提供的源时间优先。来自不同时间基准的数据不能直接对齐。
