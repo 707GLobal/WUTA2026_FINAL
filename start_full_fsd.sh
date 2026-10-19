@@ -28,7 +28,7 @@ CALIBRATION="${CALIBRATION:-$ROOT/config/camera_lidar.yaml}"
 BASE_TO_ZED="${BASE_TO_ZED:-$ROOT/config/base_to_zed.yaml}"
 CONTROLLER_CONFIG="$FSD_WS/src/control/controller/config/controller.yaml"
 CAN_CONFIG="$FSD_WS/src/system/can_interface/config/can_interface.yaml"
-INS_PORT="${INS_PORT:-/dev/ttyUSB0}"
+INS_PORT="${INS_PORT:-/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_BKEDc143M08-if00-port0}"
 LIDAR_IFACE="${LIDAR_IFACE:-enp8s0}"
 LIDAR_IP="${LIDAR_IP:-192.168.1.102/24}"
 CAN_IFACE="${CAN_IFACE:-}"
@@ -102,7 +102,7 @@ usage() {
     cat <<'EOF'
 Usage: ./start_full_fsd.sh [--check|--build-only|--status|--stop]
        [--build|--skip-build] [--sensor-only] [--reuse-ins] [--rviz|--no-rviz] [--image-view]
-       [--ins-port=/dev/ttyUSB0] [--model=FILE] [--calibration=FILE]
+       [--ins-port=/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_BKEDc143M08-if00-port0] [--model=FILE] [--calibration=FILE]
        [--base-to-zed=FILE] [--controller-config=FILE] [--can-config=FILE] [--print-config]
 
 Default start runs all hardware and FSD runtime nodes. --sensor-only starts

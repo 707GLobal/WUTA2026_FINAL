@@ -20,7 +20,7 @@ ROS 2 Humble、系统Python3.10、colcon/ament、PCL/Eigen/tf2、RViz及包内�
 | TensorRT模型 | `models/yolov8sp2-int8.engine`，1280×768；由相机模块配置相对路径解析 |
 | 相机雷达标定 | `config/camera_lidar.yaml`，本地部署文件 |
 | 车辆ZED外参 | `config/base_to_zed.yaml`，后轴中心base_link；示例仅供填充 |
-| 惯导 / CAN / 雷达网络 | `/dev/ttyUSB0` / can0 / enp8s0，192.168.1.102/24 |
+| 惯导 / CAN / 雷达网络 | `/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_BKEDc143M08-if00-port0`（当前映射到`/dev/ttyUSB0`）/ can0 / enp8s0，192.168.1.102/24 |
 
 本机文件存在不代表Git可提供部署资产；模型、标定、驱动、设备权限和环境需逐机检查。相机及雷达支架变化后重新标定。
 
