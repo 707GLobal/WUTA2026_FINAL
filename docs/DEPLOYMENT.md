@@ -149,3 +149,7 @@ Linux在主仓库执行 `git pull --ff-only`、`git submodule update --init --re
 ## 启用最终规划路径（2026-10-20）
 
 同步显示子模块后，重新部署并重启RViz与无线发送端。使用ROS安装副本启动RViz时先重新运行显示仓库build.sh更新安装模板；无线直接读取源码模板。沿用原native/bridge模式：native消费/planning/final_waypoints_viz，bridge消费/fsd_visualization/planned_path；显示桥须运行，不能混用模式。Foxglove现有/radio/scene/path图层已启用，无需重新建立连接。路径目标1秒、权重3，实际随日志、快照帧长及重试变化。未执行验证，待Linux拉取部署后生效。
+
+## Foxglove原生传感器面板（2026-10-20）
+
+本机更新显示子模块源码并重启Windows接收端，随后通过Foxglove布局菜单导入radio_link/foxglove_layout.json，切换“传感器概览”。仅使用原生Indicator/Gauge/Table，无需安装.foxe扩展包；原“CLI 日志与传感器”保留全文日志，增加“原始诊断”页。需要本版PC派生dashboard通道，Linux无需为此次界面调整重启或改参数。本轮未运行自动化验证。

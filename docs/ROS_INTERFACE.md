@@ -169,3 +169,5 @@ ROS所有权、消息字段及源时间语义沿用原接口。CLI新增 `.runti
 0.6.2当前策略：radio_run.journal与radio_log_events指向manager.events.jsonl，run.json的manager_radio_events亦为该文件；L/b消息、源时间、stream ID与A落盘确认格式不变。选择完整stream后，info、菜单/检查、普通构建、GNSS状态及错误原文全部按原顺序传输。更新并重启CLI及Linux发送端建立新scope，避免在已选旧scope内改换stream。
 
 2026-10-20：启用既有/planning/final_waypoints_viz（native）或/fsd_visualization/planned_path（bridge）无线消费，Foxglove沿用/radio/scene/path。目标1秒、权重3，最多4个Marker且每Marker48点；源时间、抽样几何与现有帧格式不变，不等同于全量Lane消息上传。
+
+PC新增/radio/cli/dashboard SDK通道，仅为现有CLI快照的本地显示投影：source_stamp_ns为原快照源时间，states为gnss/ins/lidar/camera/fusion状态码（0未收到、1在线、2源端超时、3缓存过期），gnss_quality为原详情状态码或-1未知，rows为中文表格字段。receive_age_s/stale为本机显示元数据；每秒刷新不改变原样本源时间，不是新传感器样本或ROS话题。无线接口不变。
