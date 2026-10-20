@@ -131,3 +131,11 @@ ros2 run tf2_ros tf2_echo map base_link
 ## 当前调试配置（2026-10-20）
 
 保留本机已有调试参数：U-turn替代路径测试关闭（`u_turn_test.enabled: false`），未启用的测试参数为直线9 m、半径6.3 m、速度0.9 m/s。任务机当前配置关闭雷达和相机自检，惯导心跳自检开启；这不表示雷达/相机已通过检测，实车使用前需核对模块配置。车检不设GNSS质量门槛，其他赛项及RACE继续要求新鲜状态4。
+
+## 无线0.6.0高速与当前运行升级（2026-10-20，当前配置）
+
+此节替代上文0.3.0/0.5.1的160 B/s、3秒缓冲和历史归档补传说明。两端串口115200、8N1；空中62500 bit/s须预先在两端模块配置一致，程序不改写模块。应用双向总预算3000 UART B/s，50 ms采集调度，响应超时1.2秒、换向等待0.01秒；分片144字节、最大线帧226字节，仍适配模块240字节分包。车辆目标4 Hz、传感器快照2秒一次，日志优先使用其余调度机会；并非实测速率保证。PC源时间乱序缓冲0.5秒。
+
+Linux在主仓库执行 `git pull --ff-only`、`git submodule update --init --recursive`，重新运行 `bash fsd-visualization-code/radio_link/setup_linux.sh`；关闭并重新打开CLI，然后沿用原模式执行 `bash fsd-visualization-code/radio_link/start_linux.sh --mode bridge`（原用native则继续native）。Windows同步升级后重新运行 `radio_link/start_windows.ps1`，默认COM3/115200，并导入新版foxglove_layout.json。CLI、Linux发送端和Windows接收端须配套升级；旧进程不会自动加载代码。
+
+新CLI通过 `.runtime/fsd_manager/radio_run.json` 选择当前运行；无线不会自动补传历史目录。结束运行保留尾部续传，开始下一次运行切走旧队列；无需删除历史日志或断点。Foxglove会随scope更换重置会话，图表历史也随之清空。当前版仅完成源码修改与人工阅读，按用户要求未执行测试、构建、串口或实机验证。

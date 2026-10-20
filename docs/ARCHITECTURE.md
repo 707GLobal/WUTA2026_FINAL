@@ -498,3 +498,9 @@ wuta_logs/
 0.5.0按用户要求在同一写入者的`log_context.py:necessary_radio_event`筛选必要事件，另存`manager.radio.events.jsonl`供无线读取；完整manager.log及manager.events.jsonl仍在Linux保存。筛选不改变驾驶或日志生命周期，接收协议和源时间规则不变。
 
 0.5.1适配`wuta_logs/`与旧`logs/`发现、CLI状态定位和pending归档后的stream ID续传。CLI将感知驱动组与算法组分别列入进程验证；点云/图像超时时的日志摘要归属驱动组。仅修正原消费入口，不新增日志写入者、原始数据无线源或驾驶出口。
+
+## 无线0.6.0：当前运行选择与高速预算（2026-10-20）
+
+CLI日志所有者在 `.runtime/fsd_manager/radio_run.json` 原子发布当前scope、journal、源时间及运行状态；CLI打开先选择空会话，RunLog创建后选择本次运行，结束归档更新同一scope的路径。历史恢复及仿真运行不抢占选择。无线只消费此指针，取代0.5.1全目录扫描；新scope撤销旧待发日志，完整历史继续保存在Linux。
+
+两端UART为115200，空速配置62500 bit/s；应用总预算3000 UART B/s，PC仍只响应Linux轮询并支持双向扩展。PC仅接收当前stream，收到新scope后重置Foxglove会话、重放当前几何缓存并清除上一轮CLI显示；不新增ROS发布者或控制出口。详细参数和升级限制见显示子模块radio_link/README.md。本轮按用户要求未执行测试、构建或实机验证。

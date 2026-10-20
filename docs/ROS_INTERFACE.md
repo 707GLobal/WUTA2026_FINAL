@@ -155,3 +155,11 @@ ROS消息、话题和生产所有权不变。无线schema 3完整保留PoseStamp
 0.5.0无线日志源改为`manager.radio.events.jsonl`必要事件子集，字段与L/b/A协议不变，使用独立stream ID避免与旧全文偏移混用。`/radio/cli/log`只含选中事件完整原文，CLI全部历史保留在Linux；传感器通道不受文本筛选影响。
 
 0.5.1将日志发现扩展至`wuta_logs/`及旧`logs/`，继续消费状态文件的`radio_log_events`、`log_dir`，归档按stream ID重定位。未改变L/b/A、cli_status、源时间、ROS订阅或160 B/s预算。CLI保留原`module_log_dir`字段，两个界面额外从本次`log_dir`列出外部驱动、华测和CAN日志。
+
+## 无线0.6.0当前运行契约（2026-10-20）
+
+ROS所有权、消息字段及源时间语义沿用原接口。CLI新增 `.runtime/fsd_manager/radio_run.json`，字段scope（32位小写hex UUID）、journal（可空）、t（Unix纳秒字符串）、label、active；manager状态包含同一radio_run对象。开始新运行更换scope；同一运行归档只更新路径和结束时间。
+
+无线新增JSON `cli_run`：k、scope、t（Unix纳秒整数）、stream（必要journal的UUID，可空）、label、active。发送端优先传输并每2秒重发选择信息；cli_status增加current_run。PC仅接受选定stream的L/b块，拒收旧scope及旧stream；A仍只确认已落盘字节。PC在当前scope变化时重置Foxglove会话（包括图表历史），保留并重放当前几何缓存；同一运行重连可从本机持久化journal恢复最近2000条/4 MiB显示。两端及CLI须同步升级，不能以旧接收端实现当前运行隔离。
+
+默认UART 115200，link.air_rate_bps=62500仅描述硬件空速，不写模块；总预算3000 B/s包含双向帧、确认及重试。目标车辆4 Hz、传感器快照每2秒；实际频率随帧长、日志和重试变化。几何源时间继续按原规则对齐，本机乱序缓冲默认0.5秒。本轮未执行验证。

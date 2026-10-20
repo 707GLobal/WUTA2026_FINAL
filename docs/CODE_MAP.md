@@ -65,3 +65,10 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 0.5.0必要日志规则位于`fsd_startup/log_context.py:necessary_radio_event`，原写入者生成`manager.radio.events.jsonl`；Manager状态字段`radio_log_events`定位当前源。完整性与筛选边界均在上述无线回归中验证。
 
 新日志适配（0.5.1）：`radio_link/fsd_radio/cli_telemetry.py:CliForwarder.scan/acknowledge`负责新旧根目录与归档重定位；`fsd_startup/dashboard.py:component_log_files`为两个CLI界面提供统一日志列表，`runtime_checks.py`覆盖perception_drivers。回归为`radio_link/tests/test_cli_telemetry.py`、`fsd_startup/test_log_views.py`和`tools/test_sensor_log_routing.py`（Windows使用Git Bash，不使用WSL）。
+
+## 无线0.6.0代码入口（2026-10-20）
+
+- `fsd_startup/log_context.py:publish_radio_run/reset_radio_run/RunLog.radio_selection`：现有日志生命周期发布当前运行指针；必要日志筛选省略已由传感器快照覆盖的普通GNSS状态行，警告错误保留。
+- `fsd_startup/manager.py`、`terminal_ui.py`、`dashboard.py`：发布radio_run，终端在scope切换时清理历史，图形实时日志读取当前运行日志。
+- `fsd-visualization-code/radio_link/fsd_radio/cli_telemetry.py`：选定journal、跨归档路径续传、cli_run控制帧、PC当前stream接收与有界回放；不再发现或补传历史目录。
+- 同目录 `link.py`、`configuration.py`、`ros_sender.py` 与 `radio.yaml`：3000 B/s总预算、空速/串口相关参数检查及50 ms发送端采集调度；`foxglove_view.py`处理当前scope显示会话切换。未执行本轮测试。
