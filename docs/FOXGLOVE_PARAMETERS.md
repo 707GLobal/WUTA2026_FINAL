@@ -1,5 +1,7 @@
 # Foxglove参数面板与CLI统一管理接口
 
+只需日常操作时，阅读[Foxglove简明操作指南](FOXGLOVE_QUICKSTART.md)。
+
 2026-10-20，按方案1实现：配置读写归CLI所有，Foxglove经既有无线链路调用同一接口；检查、启动、停止复用Manager。依据标准入口 `start_fsd_manager.sh` → `fsd_startup/manager.py` → `start_full_fsd.sh` 和各launch源码核对。仅本机源码实现与人工阅读，未运行测试、WSL、构建或实机操作，未改动现场YAML。
 
 ## 结论
