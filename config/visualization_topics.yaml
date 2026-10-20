@@ -20,5 +20,5 @@ topics:
   centerline: /planning/centerline
   final_waypoints: /planning/final_waypoints
   pose: /localization/pose
-  velocity: /localization/velocity
+  velocity: /chcnav/velocity
   odometry: /localization/odometry

@@ -34,7 +34,7 @@
 | `/planning/final_waypoints` | autoware_msgs/Lane | 规划 → 控制、显示 |
 | `/control/command` | autoware_msgs/Command | 控制 → CAN 接口、规划记录；默认控制回路50 Hz |
 
-`/localization/velocity` 出现在旧仿真和显示配置中，但不是当前控制器的速度订阅。显示桥默认 velocity 仍指向该旧话题，接入实车速度显示时需核对/调整显示配置。
+`/localization/velocity` 出现在旧仿真和显示配置中，但不是当前控制器的速度订阅。2026-10-14显示桥默认 velocity 已改为 `/chcnav/velocity`；旧配置或历史bag接入需核对话题。
 
 ## 2. 任务与故障
 

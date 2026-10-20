@@ -45,3 +45,9 @@ CLI及显示各是独立Git子模块，修改在子模块提交推送后，主�
 完整升级：先等待在途管理操作完成，主仓库git pull --ff-only、git submodule update --init --recursive；Linux配套加载CLI与无线程序，Windows加载接收端并导入新版JSON。仅修改布局重新导入即可；PC显示/RSSI解析代码更新需加载Windows新版，Linux不启用自身RSSI时无需因本地RSSI指示器重启。运行代码不会随git pull自动更新。
 
 本机0.7.4接收端已加载，并只读观察过RSSI RAW 197、326个接收样本、framing_errors=0；只是当时观察，不是全场景验收。本次文档审计没有启动/停止设备或执行测试、WSL、构建、CLI操作。旧版本验证证据见显示子模块VALIDATION.md，不能替代当前实机验收。
+
+## CLI无线联启与显示速度配置（2026-10-20）
+
+本次补充CLI联启独立无线终端、发送端/窗口单实例锁、无桌面后台回退和`--no-radio`/`--radio-mode`。两者生命周期独立，关闭CLI不停止无线，已有无线只打开日志终端。保留当前0.7.4的预算、RSSI、完整日志、优先队列及远程操作协议。
+
+宿主显示配置的velocity改为已有华测桥`/chcnav/velocity`（TwistStamped，base_link车体速度），替换无当前生产发布者的旧`/localization/velocity`。另修复CLI组件日志空列表的Textual空值兼容问题。其他未提交的RViz诊断面板及sensor-only显示改动不属于本次交付。
