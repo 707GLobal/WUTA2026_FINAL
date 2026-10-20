@@ -167,3 +167,9 @@ Linux主仓库 `git pull --ff-only` 后执行 `git submodule update --init --rec
 Windows重启 `radio_link/start_windows.ps1`（默认COM3/115200），导入新版foxglove_layout.json并打开“CLI 控制与参数”。先等待在线状态/目录，再选择selection/module、编辑草稿、点击保存；保存不自动重启相关进程。检查/启动/停止按钮均调用原CLI业务；停止FSD会保留CLI和独立无线程序供后续启动，原管理入口--stop仍清理并退出管理器。
 
 PC/Linux系统时间保持同步，CLI源心跳大于10秒或未来偏差超过5秒会拒绝新操作。radio_linux只保存Linux的radio.yaml，双端链路参数不自动同步。具体来源、字段、事务、超时和本地E键用法见 [参数与操作说明](FOXGLOVE_PARAMETERS.md)。本轮按用户要求未执行测试、构建、WSL或实机操作，未重启当前接收程序或现场CLI，需部署后加载。
+
+### 0.7.1指令独立优先级
+
+配套更新宿主、CLI与显示子模块，并重启CLI、Linux无线及Windows接收端。先等待当前操作完成；重启接收进程不会取消已发送指令。指令、其RPC确认和执行结果优先于日志与可视化；参数批量读取仍走普通数据队列。Windows单独升级不能改变旧Linux的发送优先级。预算仍为3000 UART B/s，原串口/模式保持，CLI既有检查和启动不被强行中断。按要求未运行测试、WSL或实车指令。
+
+本机部署记录：Windows接收端已于2026-10-20 21:36重启加载0.7.1，沿用COM3/115200/native，Foxglove已自动重新连接；重启前只读确认无在途检查/启动/停止/配置保存请求，未发送实车操作。Linux由使用者拉取并重启后才具备对应优先级。

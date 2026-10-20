@@ -83,7 +83,7 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 
 当前交付和目录索引见[DELIVERY.md](DELIVERY.md)：无线唯一布局源为radio_link/foxglove_layout.json，新鲜度与GNSS质量为background，接收年龄为bar；旧方案及工具临时文件不作为开发入口。
 
-配置来源核对与原生Parameters接入设计见[FOXGLOVE_PARAMETERS.md](FOXGLOVE_PARAMETERS.md)。CLI模块配置实际读取预检查manifest；它与根入口默认的11个模块YAML同源，但不含全部驱动/外参配置，也不代表节点当前采用值。参数远程读写为待实现设计。
+配置来源与原生Parameters接入见[FOXGLOVE_PARAMETERS.md](FOXGLOVE_PARAMETERS.md)。CLI原模块配置页读取预检查manifest，与根入口默认的11个模块YAML同源；新增E键编辑器和Parameters读取所选实际文件，支持额外驱动/外参配置。文件值不代表节点当前采用值。
 
 ## CLI统一参数与无线管理入口（0.7.0）
 
@@ -98,3 +98,5 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 | Parameters与操作按钮 | `foxglove_view.py` SDK回调、`pc_receiver.py` PC调度、`foxglove_layout.json`原生面板 |
 
 完整使用、源时间、文件来源、运行生效边界见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。
+
+0.7.1调度：显示 `radio_link/fsd_radio/link.py:Outbox.commands/next_piece` 为独立指令FIFO；`rpc.py:CONTROL_OPERATIONS/send/accept/tick`传播优先级并保留容量；`cli_control.py`按操作分类请求/回复；`worker.py`与Endpoint清理断链/换会话的两个队列。CLI `control_api.py:pump`优先选择待处理指令。回归源码 `radio_link/tests/test_command_priority.py`，本轮未运行。

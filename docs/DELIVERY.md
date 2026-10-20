@@ -44,3 +44,5 @@ Windows工作目录为 `D:\ebyte`，Git主仓库为其下 `WUTA2026_FINAL`。
 当前布局新增“CLI 控制与参数”页，原生Parameters及Publish按钮接入CLI配置读取/保存、检查、启动、停止。详细用法见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。本机output布局与源码ZIP随本版源码更新；CLI实现与宿主tools/docs通过各自Git仓库交付，不包含在显示子模块ZIP内，部署应拉取主仓库并更新全部子模块。
 
 此次需更新并重启CLI、Linux无线和Windows接收端，然后重新导入布局。先前“样式调整无需重启”只指0.6.3样式变更，不能用于本版。按用户要求未运行测试、构建、WSL或串口验证，也未重启当前程序。
+
+0.7.1：源码交付包和SHA256SUMS更新为指令/数据双队列版本；布局无变化。两端无线与CLI需配套更新，独立指令队列状态见/radio/link.command_queue。回归用例已写入源码，按要求未执行。

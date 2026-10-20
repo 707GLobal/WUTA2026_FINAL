@@ -520,3 +520,7 @@ CLI日志所有者在 `.runtime/fsd_manager/radio_run.json` 原子发布当前sc
 显示无线侧新增 `radio_link/fsd_radio/rpc.py`（有界分块可靠传输）和 `cli_control.py`（Linux邮箱传输与PC草稿/参数适配）。Linux无线不直接改YAML、不管理FSD进程；Foxglove原生Parameters/Publish最终委托CLI既有操作。只读ROS显示桥边界保持；此次新增的是经CLI授权的管理操作接口，不是驾驶GO/转向/油门出口。
 
 18项配置目录归 `tools/check_fsd_module_configs.py:configuration_files`；原11模块manifest用于审计快照，新增编辑读取实际文件。保存与运行生效明确区分，保存不自动重启。CLI需常驻，停止FSD保留CLI及独立无线进程；启动就绪以phase/日志为准。接口/部署详见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。本轮未运行测试、构建、WSL或实机操作。
+
+## 无线0.7.1：指令调度与数据隔离
+
+Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与执行结果优先于日志/几何；普通参数读取仍在数据队列。RPC保留2/8在途名额供指令。CLI ControlAPI按操作类别优先选择待处理邮箱项，业务仍在Manager原线程执行，不中断进行中的检查或启动，不改驾驶与日志所有权。总UART预算、轮询角色、源时间与持久去重保持；两端及CLI须配套升级。
