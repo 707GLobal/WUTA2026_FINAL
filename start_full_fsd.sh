@@ -580,9 +580,9 @@ wait_independent_sensor_topics() {
     local -a probes=()
     local pid failed=0
     # Probe subprocesses must not inherit the supervisor's EXIT cleanup.
-    (trap - EXIT ERR INT TERM; TOPIC_CHECK_WORKER=1 wait_topic "$LIDAR_TOPIC" 20 'M1 激光雷达数据' perception) &
+    (trap - EXIT ERR INT TERM; TOPIC_CHECK_WORKER=1 wait_topic "$LIDAR_TOPIC" 20 'M1 激光雷达数据' perception_drivers) &
     probes+=("$!")
-    (trap - EXIT ERR INT TERM; TOPIC_CHECK_WORKER=1 wait_topic "$IMAGE_TOPIC" 20 'ZED 相机图像' perception) &
+    (trap - EXIT ERR INT TERM; TOPIC_CHECK_WORKER=1 wait_topic "$IMAGE_TOPIC" 20 'ZED 相机图像' perception_drivers) &
     probes+=("$!")
     (trap - EXIT ERR INT TERM; TOPIC_CHECK_WORKER=1 wait_topic "$INS_TOPIC" 20 '华测惯导输出' chcnav) &
     probes+=("$!")
@@ -590,7 +590,7 @@ wait_independent_sensor_topics() {
         wait "$pid" || failed=1
     done
     check_children
-    [[ "$failed" == 0 ]] || fail '独立传感器并行检查存在失败；各项完整原因见上方输出与 topic 日志' perception chcnav
+    [[ "$failed" == 0 ]] || fail '独立传感器并行检查存在失败；各项完整原因见上方输出与 topic 日志' perception_drivers chcnav
 }
 
 # Authenticate in the foreground before stopping the old bridge or starting hardware.
@@ -663,8 +663,8 @@ if [[ "${FSD_PARALLEL_CHECKS:-0}" == 1 ]]; then
     wait_independent_sensor_topics
     wait_topic "$FUSION_TOPIC" 20 '检测融合输出' perception
 else
-    wait_topic "$LIDAR_TOPIC" 20 'M1 激光雷达数据' perception
-    wait_topic "$IMAGE_TOPIC" 20 'ZED 相机图像' perception
+    wait_topic "$LIDAR_TOPIC" 20 'M1 激光雷达数据' perception_drivers
+    wait_topic "$IMAGE_TOPIC" 20 'ZED 相机图像' perception_drivers
     wait_topic "$FUSION_TOPIC" 20 '检测融合输出' perception
     if [[ "$SENSOR_ONLY" == 0 || "$REUSE_INS" == 1 ]]; then
         wait_topic "$INS_TOPIC" 20 '华测惯导输出' chcnav

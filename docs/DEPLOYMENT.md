@@ -116,6 +116,8 @@ ros2 run tf2_ros tf2_echo map base_link
 
 先更新并重启Windows接收端，再在Linux主项目根`git pull --ff-only`和`git submodule update --init fsd-visualization-code`，重新运行无线setup与原模式的start_linux.sh。沿用已核对的E22串口和native/bridge模式，勿同时开两个读者。`/radio/layers`确认schema=3后导入子模块`radio_link/foxglove_layout.json`；速度路径改为`/radio/speed.speed_m_s`。默认本机增加3秒乱序缓冲，不提高160字节/秒预算。全纳秒与逐对象时间会增加包长，原刷新间隔仅为调度目标，成本、字段、源时间缺失和混合时钟边界见[无线说明](../fsd-visualization-code/radio_link/README.md)。本轮仅本机开发验证，Linux由使用者拉取部署，不代表已完成实机ROS/TF与双端schema 3无线验收。
 
-## CLI无线日志与传感器（0.5.0）
+## CLI无线日志与传感器（0.5.1）
 
-无线0.5.0必须同时更新CLI和显示子模块：在主项目根`git pull --ff-only`后执行`git submodule update --init fsd_startup fsd-visualization-code`。按现场原流程重新打开CLI与无线发送程序，保持原模式/串口；旧进程不会自动加载筛选规则。默认144字节数据片要求模块240字节分包；UART总预算仍160 B/s，PC只响应轮询。导入radio_link/foxglove_layout.json，切到“CLI 日志与传感器”。出现`manager.radio.events.jsonl`且telemetry.json含sensors_data才具备新数据；CLI首次必要事件前可没有必要journal。检查`/fsd_radio/status.cli`和PC `/radio/cli/transfer`、`/radio/cli/health`，保留未确认journal和PC磁盘数据。旧全文journal不作为新无线源；本次不会自动回放旧历史，Linux完整日志继续保留。
+无线0.5.1必须同时更新CLI和显示子模块：在主项目根`git pull --ff-only`后执行`git submodule update --init --recursive`。按现场原流程重新打开CLI与无线发送程序，保持原模式/串口；旧进程不会自动加载筛选规则。默认144字节数据片要求模块240字节分包；UART总预算仍160 B/s，PC只响应轮询。导入radio_link/foxglove_layout.json，切到“CLI 日志与传感器”。出现`manager.radio.events.jsonl`且telemetry.json含sensors_data才具备新数据；CLI首次必要事件前可没有必要journal。检查`/fsd_radio/status.cli`和PC `/radio/cli/transfer`、`/radio/cli/health`，保留未确认journal和PC磁盘数据。旧全文journal不作为无线源，不回填旧版本未记录的事件；Linux完整日志继续保留。
+
+本次日志布局重构需无线0.5.1；请同步主仓库锁定的全部子模块（`git submodule update --init --recursive`），确保拆分感知驱动/算法的FSD launch也配套更新。无线重新执行setup_linux.sh并按原模式重启；CLI重新打开后显示完整日志分类与感知驱动状态。历史目录及无线断点保留，新版可从归档目录续传。当前PC接收格式保持兼容，RViz/Foxglove几何和传感器源时间不因目录改名改变。

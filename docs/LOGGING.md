@@ -147,3 +147,7 @@ CLI dashboard复用原订阅，将GNSS、惯导、雷达、相机、融合及车
 0.5.0按用户要求只将必要事件写入独立`manager.radio.events.jsonl`：错误/警告及连续诊断上下文、任务监控变化、启动/退出汇总。菜单、窗口、逐项成功和普通构建输出不占无线。规则由同一log_context.py负责；manager.log及完整journal不删减，新子集使用独立stream ID。
 
 PC持久化收到的必要事件与其完整文字，业务确认后Linux推进字节偏移；重传去重、进程重启续传、积压及Foxglove有界缓存说明见[radio_link](../fsd-visualization-code/radio_link/README.md)。关键事件仍可能排队；未筛选的0.4.0 journal不再自动传输，全部CLI历史仍保留在Linux。
+
+0.5.1扫描新`wuta_logs/`和旧`logs/`下的必要journal，补充状态文件的当前/已结束运行路径；CLI切回会话和pending移动归档时，按stream ID重新定位，磁盘确认无需等待下一次周期扫描。两端断点继续有效，不需要清队列。非标准自定义路径在无线重启后仍需被状态文件引用；无状态的直接全栈标准目录可自动发现。
+
+CLI两种组件日志界面共用`dashboard.component_log_files`，覆盖`fsd_modules`、`external_log`、`chcnav_log`、`zlgCAN_log`，支持旧目录并保留分类标签。感知驱动组单列进程状态；点云/图像首帧失败摘要读取`external_log/perception_drivers.log`，融合失败仍读取算法组日志。组件日志列表扩大不增加无线全文传输范围。

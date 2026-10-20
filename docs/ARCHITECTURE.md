@@ -434,7 +434,7 @@ wuta_logs/
 | `start_fsd_manager.sh`、`fsd_startup/manager.py` | 操作会话、预检查、调用根入口、输出收集、登记进程、停止和日志收尾；失败返回菜单，不自行重建驾驶链 |
 | `fsd_startup/checks.py` | 配置/依赖/设备/占用/产物预检查；复用根tools的配置manifest |
 | `fsd_startup/runtime_checks.py` | 消费根入口进度和诊断更新展示，区分进程启动、收到数据、任务放行 |
-| `fsd_startup/{terminal_ui,dashboard}.py` | 键盘交互和ROS只读遥测/参数/日志展示；模块配置选择器消费既有审计manifest，组件日志选择器递归读取本次`fsd_modules`；操作委托Manager |
+| `fsd_startup/{terminal_ui,dashboard}.py` | 键盘交互和ROS只读遥测/参数/日志展示；模块配置选择器消费既有审计manifest，两个组件日志选择器共用dashboard文件目录函数，读取本次算法/外部驱动/华测/CAN日志；操作委托Manager |
 | `fsd_startup/{processes,privilege}.py` | PID启动身份、后代定位/精确清理及提权适配；不全局杀ROS |
 | `fsd_startup/log_context.py` | RunLog目录/快照/run.json与pending兜底归档，文件系统生命周期；算法不移动目录 |
 | `fsd_startup/mode_cache.py` | 启动前读取ZLG模式缓存，仅用于赛项目录分类；不发布任务状态 |
@@ -494,3 +494,5 @@ wuta_logs/
 无线0.4.0在原CLI日志所有者处增加完整事件journal，在原dashboard只读采集中增加结构化传感器/车辆快照；显示子模块`radio_link/fsd_radio/cli_telemetry.py`只负责读取、编码、PC落盘确认和断点，不拥有运行、驾驶或任务结果。日志按字节偏移可靠转发，状态按最新值；PC上行仍仅响应轮询。
 
 0.5.0按用户要求在同一写入者的`log_context.py:necessary_radio_event`筛选必要事件，另存`manager.radio.events.jsonl`供无线读取；完整manager.log及manager.events.jsonl仍在Linux保存。筛选不改变驾驶或日志生命周期，接收协议和源时间规则不变。
+
+0.5.1适配`wuta_logs/`与旧`logs/`发现、CLI状态定位和pending归档后的stream ID续传。CLI将感知驱动组与算法组分别列入进程验证；点云/图像超时时的日志摘要归属驱动组。仅修正原消费入口，不新增日志写入者、原始数据无线源或驾驶出口。
