@@ -5,7 +5,7 @@
 
 ## 1. 环境与文件
 
-E22低带宽双向遥测与Windows Foxglove显示可选组件见[radio_link部署说明](../fsd-visualization-code/radio_link/README.md)。它独立启动，Linux只消费既有ROS显示/定位数据，Windows默认COM3；不由全车入口自动启用。Linux串口通过radio.yaml配置或启动参数覆盖，避免占用惯导端口；原生显示输入与bridge输入须按实际运行模式选择。2.4kbps仅提供降采样预览，首次接入需完成说明中的串口、ROS/TF、空口与Foxglove验收。
+E22低带宽双向遥测与Windows Foxglove显示可选组件见[radio_link部署说明](../fsd-visualization-code/radio_link/README.md)。它独立启动，Linux只消费既有ROS显示/定位数据，Windows默认COM3；不由全车入口自动启用。Linux串口通过radio.yaml配置或启动参数覆盖，避免占用惯导端口；原生显示输入与bridge输入须按实际运行模式选择。当前要求串口115200 bps 8N1、模块空速62.5 kbps；软件仍按160字节/秒保守限速，仅提供降采样预览，首次接入需完成说明中的串口、ROS/TF、空口与Foxglove验收。
 
 历史版本radio_link 0.2.0使用必要几何schema 2（当前0.3.0升级见末节），升级时先更新/重启PC接收端，再更新/重启Linux发送端；保留双端一致的fixed_frame和量化步长，PC样式在`radio.yaml:foxglove.styles`配置。旧PC不能解码新几何消息，新PC兼容旧消息，升级后应通过`/radio/layers`中各图层的`schema`字段确认已收到schema 2。
 
@@ -20,7 +20,7 @@ ROS 2 Humble、系统Python3.10、colcon/ament、PCL/Eigen/tf2、RViz及包内�
 | TensorRT模型 | `models/yolov8sp2-int8.engine`，1280×768；由相机模块配置相对路径解析 |
 | 相机雷达标定 | `config/camera_lidar.yaml`，本地部署文件 |
 | 车辆ZED外参 | `config/base_to_zed.yaml`，后轴中心base_link；示例仅供填充 |
-| 惯导 / CAN / 雷达网络 | `/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_BKEDc143M08-if00-port0`（当前映射到`/dev/ttyUSB0`）/ can0 / enp8s0，192.168.1.102/24 |
+| 惯导 / CAN / 雷达网络 | `/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_BKEDc143M08-if00-port0` / can0 / enp8s0，192.168.1.102/24 |
 
 本机文件存在不代表Git可提供部署资产；模型、标定、驱动、设备权限和环境需逐机检查。相机及雷达支架变化后重新标定。
 
@@ -79,7 +79,7 @@ ros2 topic echo --once /system/devices_inspection
 ros2 run tf2_ros tf2_echo map base_link
 ```
 
-惯导无输出先按[临时诊断](惯导临时诊断记录.md)检查字节、解析、CRC、devpvt到桥和拒绝计数。当前桥门槛为0，GNSS状态0本身不停止发布；任务自检用原始devpvt心跳，GNSS质量与设备在线分开。普通任务及RACE要求新鲜GNSS=4，车检允许新鲜0或4，GO仍需真实输入。
+惯导无输出先按[临时诊断](惯导临时诊断记录.md)检查字节、解析、CRC、devpvt到桥和拒绝计数。当前桥门槛为0，GNSS状态0本身不停止发布；任务自检用原始devpvt心跳，GNSS质量与设备在线分开。普通任务及RACE要求新鲜GNSS=4，车检不设GNSS门槛，仍保留设备心跳自检，GO仍需真实输入。
 
 定位不ready时查华测→EKF→定位输出；地图为空时查融合颜色、时间、map←rslidar TF和最少命中；无路径时查红蓝数量、边界与方向；无法发车查自检、模式、GO是否已消费与状态门槛。监控超过3 s无状态广播会提示，具体信息见 `manager.log`。
 
@@ -110,7 +110,13 @@ ros2 run tf2_ros tf2_echo map base_link
 
 独立显示：`bash fsd-visualization-code/start.sh mode:=bridge`。本仓库内自动复用相邻已有FSD安装环境；外置部署设置`FSD_SETUP`。无线先执行`bash fsd-visualization-code/radio_link/setup_linux.sh`，再执行`bash fsd-visualization-code/radio_link/start_linux.sh --mode bridge`。两者独立，不启动算法或传感器。
 
-本机E22默认by-id路径`/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0`写入`radio.yaml`，目前解析为ttyUSB1；惯导仍是Prolific ttyUSB0，不得混用。CH340无唯一序列号，多个同型号适配器需重新核对；BRLTTY两个服务本机已屏蔽。串口打开与TX增加不等于对端收到，需检查RX及peer会话并完成Ping/Pong。相机/雷达接口没有直接重叠，但未完成同时满载对照验证，详细证据见[共存检查](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。
+本机E22默认by-id路径`/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0`写入`radio.yaml`，ttyUSB编号可能随插入顺序变化；惯导使用Prolific的by-id路径，不得混用。CH340无唯一序列号，多个同型号适配器需重新核对；BRLTTY两个服务本机已屏蔽。串口打开与TX增加不等于对端收到，需检查RX及peer会话并完成Ping/Pong。相机/雷达接口没有直接重叠，但未完成同时满载对照验证，详细证据见[共存检查](../fsd-visualization-code/docs/DEVICE_COEXISTENCE.md)。
+
+## 2026-10-19：惯导固定设备路径
+
+根`INS_PORT`默认、CLI预检查/权限处理、华测源码YAML、独立启动脚本及正式launch回退值已统一为`/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_BKEDc143M08-if00-port0`。当前解析为`/dev/ttyUSB1`，E22的CH340 by-id解析为`/dev/ttyUSB0`，不能按旧编号选择。`INS_PORT`和`--ins-port`仍可覆盖根入口，华测独立入口保留`--port`覆盖。现有独占检查按设备身份识别别名，不增加串口读者。
+
+修改源码配置后重启相应启动入口生效，不修改install副本、不启动硬件验证；直接使用已安装launch的部署需先重建华测包以更新安装配置。已运行的CLI应重新打开以加载默认值。
 
 ## 无线0.3.0源时间升级
 
@@ -121,3 +127,7 @@ ros2 run tf2_ros tf2_echo map base_link
 无线0.5.1必须同时更新CLI和显示子模块：在主项目根`git pull --ff-only`后执行`git submodule update --init --recursive`。按现场原流程重新打开CLI与无线发送程序，保持原模式/串口；旧进程不会自动加载筛选规则。默认144字节数据片要求模块240字节分包；UART总预算仍160 B/s，PC只响应轮询。导入radio_link/foxglove_layout.json，切到“CLI 日志与传感器”。出现`manager.radio.events.jsonl`且telemetry.json含sensors_data才具备新数据；CLI首次必要事件前可没有必要journal。检查`/fsd_radio/status.cli`和PC `/radio/cli/transfer`、`/radio/cli/health`，保留未确认journal和PC磁盘数据。旧全文journal不作为无线源，不回填旧版本未记录的事件；Linux完整日志继续保留。
 
 本次日志布局重构需无线0.5.1；请同步主仓库锁定的全部子模块（`git submodule update --init --recursive`），确保拆分感知驱动/算法的FSD launch也配套更新。无线重新执行setup_linux.sh并按原模式重启；CLI重新打开后显示完整日志分类与感知驱动状态。历史目录及无线断点保留，新版可从归档目录续传。当前PC接收格式保持兼容，RViz/Foxglove几何和传感器源时间不因目录改名改变。
+
+## 当前调试配置（2026-10-20）
+
+保留本机已有调试参数：U-turn替代路径测试关闭（`u_turn_test.enabled: false`），未启用的测试参数为直线9 m、半径6.3 m、速度0.9 m/s。任务机当前配置关闭雷达和相机自检，惯导心跳自检开启；这不表示雷达/相机已通过检测，实车使用前需核对模块配置。车检不设GNSS质量门槛，其他赛项及RACE继续要求新鲜状态4。

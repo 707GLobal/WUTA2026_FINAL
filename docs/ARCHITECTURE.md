@@ -289,7 +289,7 @@ ROS包名为`kiss_icp`，包定义在`kiss-icp/ros`；内部C++/Python/评估目
 | 同cpp的onMissionModeCmd/onStartCommand/advanceWhenReady/transitionTo | 模式选择、GO计数/消费、IDLE/READY发车流程、车检例外及定位模式字段 |
 | 同cpp的coneMapQualityPasses/raceGates/advanceRaceWhenReady | 当前地图质量、综合定位/首圈/GNSS/中心线门槛及MAPPING_DONE→RACE |
 | 同cpp的onPose/updateLapCounter/publishLapCount | 起终线初始化、过线方向/范围/航向与时间/距离检查、正式圈次和Trackdrive结束 |
-| 同cpp的lidarReady/gnssReady/startupGnssReady/selfCheckTick | 点云、devpvt、图像心跳、GNSS门控、宽限与故障锁存 |
+| 同cpp的lidarReady/gnssReady/startupGnssReady/selfCheckTick | 点云、devpvt、图像心跳、GNSS门控（车检豁免）、宽限与故障锁存 |
 | 同cpp的publishDevicesInspection/onEmergency/onMissionComplete | 设备结论/急停事件、任务急停状态及非Trackdrive完成反馈 |
 | 同cpp的waitingReasons/publishState | 权威wait诊断和MissionState广播，展示端消费相同门控结论 |
 | `config/mission_manager.yaml`、`CMakeLists.txt` | 任务配置、mission_manager_node及华测msg_interfaces等依赖 |
@@ -401,7 +401,7 @@ wuta_logs/
 2026-10-14 起代码归独立 CLI 仓库管理，宿主通过 `fsd_startup` 子模块固定提交版本；路径和根 `start_fsd_manager.sh` 入口保持不变。CLI仍消费宿主 `tools/`、配置和启动脚本，不复制算法或另建全栈编排；开发文档继续在宿主 `docs/` 维护。本地认证文件留在子模块工作目录且不入库。
 界面无命令输入框或数字页面快捷键，通过Tab切换区域、方向键和Enter选择页面。启动包维护约定见 [启动管理开发指南](DEVELOPMENT.md#startup-development)。
 
-惯导数据传输与定位质量分开：桥默认门槛0，任务机用devpvt判设备在线，另以GNSS门控决定任务推进；车检允许新鲜0或4，其他任务及RACE要求新鲜4。终端只订阅ROS数据，不额外读取串口。临时诊断在已有驱动内部采集，不改变串口读者数量。
+惯导数据传输与定位质量分开：桥默认门槛0，任务机用devpvt判设备在线，另以GNSS门控决定任务推进；车检不设GNSS门槛，设备心跳自检仍保留，其他任务及RACE要求新鲜4。终端只订阅ROS数据，不额外读取串口。临时诊断在已有驱动内部采集，不改变串口读者数量。
 
 ## 9. FSD之外的模块文件与复用入口
 
@@ -420,7 +420,7 @@ wuta_logs/
 | 显示`src/fsd_visualization/fsd_visualization/bridge.py` | 从真实算法消息生成独立Marker/速度/状态显示，不回写算法结果 |
 | 显示`src/fsd_visualization/fsd_visualization/configuration.py`、`src/fsd_visualization/launch/view.launch.py` | 布局渲染与显示桥/RViz组装，不启动FSD驾驶算法 |
 | 显示`src/fsd_visualization/config/{topics.yaml,fsd.rviz}`、`src/fsd_rviz_plugins/src/safe_image.cpp` | 显示话题/布局与安全图像插件；修改显示优先走现有配置/桥/插件 |
-| 显示`radio_link/fsd_radio/{ros_sender,geometry,protocol,link,transport,worker}.py` | 2.4kbps无线显示传输：消费标准显示Marker与真实位姿/速度，采样TF、量化、限量、双向扩展；复用原显示配置生成器，不生产权威算法结果 |
+| 显示`radio_link/fsd_radio/{ros_sender,geometry,protocol,link,transport,worker}.py` | 115200 bps串口/62.5 kbps空速无线显示传输：消费标准显示Marker与真实位姿/速度，采样TF、量化、限量、双向扩展；复用原显示配置生成器，不生产权威算法结果 |
 | 显示`radio_link/fsd_radio/{pc_receiver,foxglove_view,cli}.py` | Windows COM3接收及Foxglove官方SDK显示，独立扩展JSON接口；Linux串口必填，不读取惯导串口、不发布驾驶或任务控制指令 |
 | 显示`radio_link/fsd_radio/essentials.py` | 2026-10-19必要几何schema 2/3：二进制坐标/点差分、必要尺寸/姿态、来源色索引与时间；固定样式在PC生成，完整快照替换处理增删，新接收端兼容旧消息 |
 
@@ -428,13 +428,15 @@ wuta_logs/
 
 ### 9.2 启动管理与日志
 
+惯导默认串口使用本机Prolific适配器的`/dev/serial/by-id/`路径，根启动、CLI预检查/权限和华测正式入口保持一致；设备更换通过现有串口覆盖参数接入，配置细节见[DEPLOYMENT](DEPLOYMENT.md)。
+
 | 文件 | 功能与边界 |
 | --- | --- |
 | `start_full_fsd.sh` | 环境/依赖与构建、硬件复用/启动、TF/算法组装、首帧检查和所属进程组监管；生产全栈部署入口 |
 | `start_fsd_manager.sh`、`fsd_startup/manager.py` | 操作会话、预检查、调用根入口、输出收集、登记进程、停止和日志收尾；失败返回菜单，不自行重建驾驶链 |
 | `fsd_startup/checks.py` | 配置/依赖/设备/占用/产物预检查；复用根tools的配置manifest |
-| `fsd_startup/runtime_checks.py` | 消费根入口进度和诊断更新展示，区分进程启动、收到数据、任务放行 |
-| `fsd_startup/{terminal_ui,dashboard}.py` | 键盘交互和ROS只读遥测/参数/日志展示；模块配置选择器消费既有审计manifest，两个组件日志选择器共用dashboard文件目录函数，读取本次算法/外部驱动/华测/CAN日志；操作委托Manager |
+| `fsd_startup/runtime_checks.py` | 消费根入口进度和诊断更新展示，区分进程启动、收到数据、任务放行；车检GNSS门控按权威诊断显示不要求 |
+| `fsd_startup/{terminal_ui,dashboard}.py` | 键盘交互和ROS只读遥测/参数/日志展示；传感器页GNSS门控消费任务机诊断，缺失或超时显示未知；模块配置选择器消费既有审计manifest，两个组件日志选择器共用dashboard文件目录函数，读取本次算法/外部驱动/华测/CAN日志；操作委托Manager |
 | `fsd_startup/{processes,privilege}.py` | PID启动身份、后代定位/精确清理及提权适配；不全局杀ROS |
 | `fsd_startup/log_context.py` | RunLog目录/快照/run.json与pending兜底归档，文件系统生命周期；算法不移动目录 |
 | `fsd_startup/mode_cache.py` | 启动前读取ZLG模式缓存，仅用于赛项目录分类；不发布任务状态 |

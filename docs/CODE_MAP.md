@@ -19,10 +19,12 @@
 | EKF / 第三方定位 | `localization/robot_localization`、`localization/kiss-icp` | robot_localization 原生测试/参数；KISS 是否启动由入口决定 |
 | KISS 增量过滤 | `localization/kiss_icp_wrapper/src/kiss_odom_sanitizer_node.cpp` | `config/kiss_icp_hesai128.yaml`；当前实车不启动 |
 | NDT / 点云地图保存 | `localization/ndt_localization/src/{ndt_localization,map_saver}.cpp` | `config/ndt_localization.yaml`；map_saver 坐标变换仍有 TODO |
-| 任务 / 自检 / 计圈 | `system/mission_manager/src/mission_manager.cpp` | `config/mission_manager.yaml`；门控诊断编码在 MissionState.description |
+| 任务 / 自检 / 计圈 | `system/mission_manager/src/mission_manager.cpp` | `config/mission_manager.yaml`；门控诊断编码在 MissionState.description；车检不设GNSS门槛，设备自检保留 |
 | CAN 任务输入 / 执行器输出 | `system/can_interface/src/{can_interface,can_socket}.cpp` | `config/can_interface.yaml`；协议在 `docs_for_can` |
 
 ## FSD 之外
+
+惯导串口默认值与覆盖入口：根`start_full_fsd.sh`（INS_PORT/--ins-port）、CLI`fsd_startup/{checks,manager}.py`、华测`src/chcnav/config/chcnav_fsd_bridge.yaml`及`src/chcnav/{scripts/start_chcnav_fsd.sh,launch/chcnav_fsd_bridge.launch.py}`。默认绑定Prolific的by-id路径，避免ttyUSB重编号选错E22；具体设备见[DEPLOYMENT](DEPLOYMENT.md)。
 
 | 功能 | 入口 |
 | --- | --- |
@@ -31,7 +33,7 @@
 | 实车编排 / 进程清理 | [start_full_fsd.sh](../start_full_fsd.sh) |
 | 纯键盘终端与自启 | 根 `start_fsd_manager.sh`；独立 [CLI子模块](https://github.com/starry1N/WUTA-FSD-CLI) 的 `fsd_startup/{manager,terminal_ui,dashboard,runtime_checks}.py`、`autostart.sh`；[开发指南](DEVELOPMENT.md#startup-development) |
 | 模块配置 / 组件日志选择器 | `fsd_startup/terminal_ui.py`；配置消费审计 `manifest.json`，日志读取当前模块目录；键盘回归 `fsd_startup/test_terminal_ui.py` |
-| GNSS状态含义 | `tools/gnss_status.py`；任务门控在mission_manager，显示通过ROS订阅 |
+| GNSS状态含义 | `tools/gnss_status.py`；任务门控在mission_manager，CLI车辆/传感器页及运行检查消费权威诊断；车检显示不要求 |
 | 惯导分层诊断 | `temporary_ins_diagnostics.hpp`与华测parser/protocol/bridge内计数；[诊断记录](惯导临时诊断记录.md) |
 | CAN模式会话缓存 | `zlgcan_bridge/mode_cache.{c,h}`；`system/can_interface/src/mode_cache.cpp`及`mode_cache`配置 |
 | 华测解析和 FSD 桥 | `humble-chcnav-cgi_ros2pkg/src/chcnav/src/chcnav_fsd_bridge/ChcnavFsdBridge.cpp`；`scripts/start_chcnav_fsd.sh`；`config/chcnav_fsd_bridge.yaml` |

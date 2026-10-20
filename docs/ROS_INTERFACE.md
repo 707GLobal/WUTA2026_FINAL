@@ -51,7 +51,7 @@
 
 任务机不订阅旧 `/system/lidar_ready`，而以M1点云接收心跳判断雷达在线；惯导自检以`ins_heartbeat_topic`（默认`/chcnav/devpvt`）接收心跳判断，GNSS=0不等于设备离线。默认心跳超时2秒。
 
-`MissionState.description`包含`gnss_status`、`gnss_ready`及`wait`等诊断，显示端消费实际字段。GNSS=4为RTK固定解定位定向，8为固定解定位不定向，不等同于4。`gnss_ready`反映当前赛项的启动门控：车检允许新鲜0或4，其他任务及RACE要求新鲜4；完整0–9含义见`tools/gnss_status.py`。
+`MissionState.description`包含`gnss_status`、`gnss_ready`及`wait`等诊断，显示端消费实际字段。GNSS=4为RTK固定解定位定向，8为固定解定位不定向，不等同于4。`gnss_ready`反映当前赛项的启动门控：车检不设GNSS门槛（设备心跳自检仍保留），其他任务及RACE要求新鲜4；完整0–9含义见`tools/gnss_status.py`。
 
 桥默认`min_gnss_status=0`仍保留有限值/标准差检查；显式原点直接采用，自动原点在状态4时固定。GNSS低质量时收到odometry不代表可发车。
 
@@ -114,7 +114,7 @@ CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧�
 | `/fsd_radio/extension/rx` | std_msgs/String，JSON对象 | 无线接收端 → 明确接入的扩展消费者；不自动转发到驾驶/任务话题 |
 | `/fsd_radio/status` | std_msgs/String，JSON状态 | Linux无线节点 → 只读监控，含串口连接、字节数、重试、未知输入 |
 
-扩展ROS接口Reliable/Volatile/depth10，显示输入Best Effort/Volatile/depth1；波特率9600 8N1，默认双向合计UART预算160字节/秒。PC只经Foxglove SDK发布本地显示通道，不向ROS发布TF。压缩、量化、抽样和数据年龄语义见[无线模块说明](../fsd-visualization-code/radio_link/README.md)。本机默认COM3；Linux无线串口从radio.yaml读取，可通过启动参数覆盖，不能复用惯导设备。
+扩展ROS接口Reliable/Volatile/depth10，显示输入Best Effort/Volatile/depth1；波特率115200 bps 8N1、模块空速62.5 kbps，默认双向合计UART预算160字节/秒。PC只经Foxglove SDK发布本地显示通道，不向ROS发布TF。压缩、量化、抽样和数据年龄语义见[无线模块说明](../fsd-visualization-code/radio_link/README.md)。本机默认COM3；Linux无线串口从radio.yaml读取，可通过启动参数覆盖，不能复用惯导设备。
 
 2026-10-19（0.2.0历史；当前schema 3见末节）：ROS话题与所有权不变，几何无线消息改为schema 2必要字段二进制。固定frame/量化步长用双端一致配置及16位指纹检查，点坐标与必要尺寸5厘米量化，源时间保留毫秒；外观样式、标签和临时显示ID由PC生成。Linux抽样计数仅保留在`/fsd_radio/status.sampling`；PC `/radio/layers`显示schema、解码对象数与新鲜度。扩展JSON和外层分片/ACK仍保留，刷新间隔不提高，先升级接收端再升级发送端。
 
