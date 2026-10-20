@@ -163,3 +163,5 @@ ROS所有权、消息字段及源时间语义沿用原接口。CLI新增 `.runti
 无线新增JSON `cli_run`：k、scope、t（Unix纳秒整数）、stream（必要journal的UUID，可空）、label、active。发送端优先传输并每2秒重发选择信息；cli_status增加current_run。PC仅接受选定stream的L/b块，拒收旧scope及旧stream；A仍只确认已落盘字节。PC在当前scope变化时重置Foxglove会话（包括图表历史），保留并重放当前几何缓存；同一运行重连可从本机持久化journal恢复最近2000条/4 MiB显示。两端及CLI须同步升级，不能以旧接收端实现当前运行隔离。
 
 默认UART 115200，link.air_rate_bps=62500仅描述硬件空速，不写模块；总预算3000 B/s包含双向帧、确认及重试。目标车辆4 Hz、传感器快照每2秒；实际频率随帧长、日志和重试变化。几何源时间继续按原规则对齐，本机乱序缓冲默认0.5秒。本轮未执行验证。
+
+0.6.1：会话变化后重新公告同名Foxglove通道，客户端通道ID可变化；缓存重新绑定新ID并保留原源时间。无线帧和ROS接口不变。

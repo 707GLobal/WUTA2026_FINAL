@@ -72,3 +72,5 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 - `fsd_startup/manager.py`、`terminal_ui.py`、`dashboard.py`：发布radio_run，终端在scope切换时清理历史，图形实时日志读取当前运行日志。
 - `fsd-visualization-code/radio_link/fsd_radio/cli_telemetry.py`：选定journal、跨归档路径续传、cli_run控制帧、PC当前stream接收与有界回放；不再发现或补传历史目录。
 - 同目录 `link.py`、`configuration.py`、`ros_sender.py` 与 `radio.yaml`：3000 B/s总预算、空速/串口相关参数检查及50 ms发送端采集调度；`foxglove_view.py`处理当前scope显示会话切换。未执行本轮测试。
+
+0.6.1：`radio_link/fsd_radio/foxglove_view.py:_create_channels/_reset_session`统一通道创建及会话切换后的通道重公告，避免使用关闭的缓存通道。

@@ -139,3 +139,5 @@ ros2 run tf2_ros tf2_echo map base_link
 Linux在主仓库执行 `git pull --ff-only`、`git submodule update --init --recursive`，重新运行 `bash fsd-visualization-code/radio_link/setup_linux.sh`；关闭并重新打开CLI，然后沿用原模式执行 `bash fsd-visualization-code/radio_link/start_linux.sh --mode bridge`（原用native则继续native）。Windows同步升级后重新运行 `radio_link/start_windows.ps1`，默认COM3/115200，并导入新版foxglove_layout.json。CLI、Linux发送端和Windows接收端须配套升级；旧进程不会自动加载代码。
 
 新CLI通过 `.runtime/fsd_manager/radio_run.json` 选择当前运行；无线不会自动补传历史目录。结束运行保留尾部续传，开始下一次运行切走旧队列；无需删除历史日志或断点。Foxglove会随scope更换重置会话，图表历史也随之清空。当前版仅完成源码修改与人工阅读，按用户要求未执行测试、构建、串口或实机验证。
+
+0.6.1显示修复：Windows接收端更新并重启一次，以加载会话重置后的通道重公告逻辑。此后CLI重启/切换运行继续在原Foxglove连接显示，无需手动断开重连；Linux发送协议及模块参数无变化。未执行自动化验证。
