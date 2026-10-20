@@ -175,3 +175,5 @@ PC/Linux系统时间保持同步，CLI源心跳大于10秒或未来偏差超过5
 本机部署记录：Windows接收端已于2026-10-20 21:36重启加载0.7.1，沿用COM3/115200/native，Foxglove已自动重新连接；重启前只读确认无在途检查/启动/停止/配置保存请求，未发送实车操作。Linux由使用者拉取并重启后才具备对应优先级。
 
 0.7.2 CLI状态指示：本机Windows接收端已重启加载PC派生display_state，COM3/115200/native保持；重启前只读状态为等待操作、无在途请求。Foxglove重新导入radio_link/foxglove_layout.json或output/FSD_E22_CLI与传感器.json后，CLI控制页顶部出现背景状态面板。Linux无需为此次面板升级或重启；未发送实车操作或执行测试。
+
+当前布局调整无需重启程序：重新导入radio_link/foxglove_layout.json或output/FSD_E22_CLI与传感器.json。CLI状态与检查/启动/停止/状态查询在“CLI 日志与传感器”的传感器表格区域；参数编辑/保存/重新读取在独立“参数控制”页。

@@ -48,3 +48,5 @@ Windows工作目录为 `D:\ebyte`，Git主仓库为其下 `WUTA2026_FINAL`。
 0.7.1：源码交付包和SHA256SUMS更新为指令/数据双队列版本；布局无变化。两端无线与CLI需配套更新，独立指令队列状态见/radio/link.command_queue。回归用例已写入源码，按要求未执行。
 
 0.7.2：当前布局/源码ZIP增加CLI控制页顶部背景状态Indicator；更新Windows接收端后重新导入布局，Linux无需为本次面板变更重启。
+
+当前布局已分为CLI操作/日志/传感器与独立参数控制：output导入JSON、源码ZIP和SHA256SUMS同步更新，仅需重新导入布局，无需重启两端或改无线配置。
