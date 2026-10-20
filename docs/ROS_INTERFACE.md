@@ -183,3 +183,5 @@ PC SDK新增Parameters能力：selection/module按需读取，yaml/<模块>/<完
 无线0.7.1：RPC数据块及ACK新增可选p=1（指令）/0（普通数据），缺省0；成功/错误业务回复按原操作分类进入同优先级。cli.check/start/stop/status/result、config.set及其ACK/回复走独立指令FIFO，config.list/read走普通扩展FIFO。指令每次新分片选择时优先于日志/几何，无新ROS话题、无新串口通道，总预算保持。PC /radio/link新增command_queue计数；extension_queue只计普通扩展。旧端兼容解析，但须配套更新才能在两方向实现优先级。
 
 0.7.2仅PC显示增加/radio/cli/control.display_state，来自原phase与在线/新鲜度判定；源时间保持原CLI心跳值。用于原生状态Indicator，原ROS及无线协议不变。
+
+0.7.3 PC /radio/cli/control增加busy布尔显示字段，display_state在线有管理请求活动/等待结果时为操作中；离线优先，自动参数读取排除。phase与源时间保留，ROS和无线接口不变。

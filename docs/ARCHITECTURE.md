@@ -528,3 +528,5 @@ Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与�
 无线0.7.2：PC Control适配器从既有在线判定和CLI phase生成display_state，仅供“CLI 控制与参数”顶部原生Indicator显示；离线时覆盖旧运行状态，不改变CLI业务状态、无线字段或源时间。
 
 当前Foxglove布局的“CLI 日志与控制”只放CLI状态/检查/启动/停止/查询、日志、车辆任务及操作结果；dashboard.rows传感器表格和原始传感器详情仅在“传感器概览”。“参数控制”页只承载Parameters和保存/重新读取。仅显示布局归组，业务所有权、无线数据和优先级保持。
+
+无线0.7.3仅PC增加操作中显示：复用CLI active与本机管理指令队列/pending派生busy和display_state，不改CLI业务phase，不新增无线数据；后台参数自动读取不触发操作中。

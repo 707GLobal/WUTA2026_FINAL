@@ -104,3 +104,5 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 CLI状态指示：显示radio_link/fsd_radio/cli_control.py:PcControl.tick派生display_state，radio_link/foxglove_layout.json的Indicator!cliState消费，位于CLI控制页顶部；原phase/online仍保留在详情，不新增无线采集。
 
 当前页面定位：radio_link/foxglove_layout.json的“CLI 日志与控制”引用Indicator!cliState及Publish!cli_check/start/stop/status；Table!sensorParams、RawMessages!cliSensors仅在“传感器概览”。独立“参数控制”只引用Parameters!cliConfig及Publish!cli_save/reload。此次仅布局修改。
+
+PcControl.tick的busy/display_state是CLI操作中指示入口，Indicator!cliState显示橙色；使用原活动操作与本机管理请求，排除config.list/read。CLI业务执行与优先级不变。
