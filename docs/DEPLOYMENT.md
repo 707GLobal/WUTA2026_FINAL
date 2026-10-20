@@ -155,3 +155,7 @@ Linux在主仓库执行 `git pull --ff-only`、`git submodule update --init --re
 本机更新显示子模块源码并重启Windows接收端，随后通过Foxglove布局菜单导入radio_link/foxglove_layout.json，切换“传感器概览”。仅使用原生Indicator/Gauge/Table，无需安装.foxe扩展包；原“CLI 日志与传感器”保留全文日志，增加“原始诊断”页。需要本版PC派生dashboard通道，Linux无需为此次界面调整重启或改参数。本轮未运行自动化验证。
 
 布局样式调整仅需重新导入新版foxglove_layout.json：新鲜度、GNSS质量为背景样式，接收年龄为0～20秒条形显示。接收进程、COM3和Linux无需为此重启。当前交付文件及可恢复旧文件的位置见[目录索引](DELIVERY.md)。
+
+## 配置文件与CLI清单的边界（2026-10-20）
+
+标准根入口默认从FSD源码config加载核心11模块，与CLI预检查清单同源；CLI“模块配置”仅显示上次预检查写入的manifest，不查询在线参数。外部修改YAML后先重做预检查；主要算法参数默认需要重启节点，ROS参数写入成功不能证明算法内部已更新。显式文件/模型/CAN/串口及运行目录覆盖、额外驱动/外参配置见[配置核对](FOXGLOVE_PARAMETERS.md)。Foxglove Parameters尚未接入Linux YAML读写，此文档仅给出设计，没有改动当前节点参数。

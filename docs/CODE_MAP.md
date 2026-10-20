@@ -82,3 +82,5 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 传感器原生面板：显示子模块radio_link/fsd_radio/foxglove_view.py:sensor_dashboard为PC格式化入口；radio_link/foxglove_layout.json使用Indicator/Gauge/Table并保留原始诊断页。数据仍来自cli_telemetry.expand_status，不新增采集者。
 
 当前交付和目录索引见[DELIVERY.md](DELIVERY.md)：无线唯一布局源为radio_link/foxglove_layout.json，新鲜度与GNSS质量为background，接收年龄为bar；旧方案及工具临时文件不作为开发入口。
+
+配置来源核对与原生Parameters接入设计见[FOXGLOVE_PARAMETERS.md](FOXGLOVE_PARAMETERS.md)。CLI模块配置实际读取预检查manifest；它与根入口默认的11个模块YAML同源，但不含全部驱动/外参配置，也不代表节点当前采用值。参数远程读写为待实现设计。
