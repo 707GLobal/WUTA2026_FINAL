@@ -106,3 +106,5 @@ CLI状态指示：显示radio_link/fsd_radio/cli_control.py:PcControl.tick派生
 当前页面定位：radio_link/foxglove_layout.json的“CLI 日志与控制”引用Indicator!cliState及Publish!cli_check/start/stop/status；Table!sensorParams、RawMessages!cliSensors仅在“传感器概览”。独立“参数控制”只引用Parameters!cliConfig及Publish!cli_save/reload。此次仅布局修改。
 
 PcControl.tick的busy/display_state是CLI操作中指示入口，Indicator!cliState显示橙色；使用原活动操作与本机管理请求，排除config.list/read。CLI业务执行与优先级不变。
+
+RSSI入口：显示radio_link/fsd_radio/protocol.py:Framer的可选包尾字节状态，transport.py:rssi_status本机采集/新鲜度，worker.py按角色选择serial.append_rssi_pc/linux并输出/radio/link.rssi，configuration.py约束240字节分包；foxglove_layout.json的Indicator!radioRssi位于Table!taskState下方。原始单位，不假定dBm；test_rssi.py用例未运行。

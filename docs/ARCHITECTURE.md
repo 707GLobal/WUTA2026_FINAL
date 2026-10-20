@@ -530,3 +530,5 @@ Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与�
 当前Foxglove布局的“CLI 日志与控制”只放CLI状态/检查/启动/停止/查询、日志、车辆任务及操作结果；dashboard.rows传感器表格和原始传感器详情仅在“传感器概览”。“参数控制”页只承载Parameters和保存/重新读取。仅显示布局归组，业务所有权、无线数据和优先级保持。
 
 无线0.7.3仅PC增加操作中显示：复用CLI active与本机管理指令队列/pending派生busy和display_state，不改CLI业务phase，不新增无线数据；后台参数自动读取不触发操作中。
+
+无线0.7.4：原串口Framer可按接收端配置提取有效帧后的RSSI字节，SerialTransport提供本机采集时间/新鲜度，RadioWorker将其投影到原/radio/link.rssi，CLI页vehicle.rows下方Indicator显示原始强度值。只属无线接收元数据，不是传感器采集或新无线数据生产者；不改应用包和CLI业务，Linux接收RSSI不额外上传。前提是240字节模块包且一应用帧对应一无线包，换算未核验时不标dBm。

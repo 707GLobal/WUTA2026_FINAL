@@ -181,3 +181,11 @@ PC/Linux系统时间保持同步，CLI源心跳大于10秒或未来偏差超过5
 最终布局导入后，页名为“CLI 日志与控制”“传感器概览”“参数控制”：专用传感器表格和原始详情仅在传感器概览，CLI页已移除这些组件。无需重启程序，仅重新导入JSON。
 
 0.7.3本机部署：Windows接收端已重启加载操作中显示，重启前只读确认CLI运行中、active为空且无pending请求。COM3/115200/native保持，未触发CLI启动/停止/检查或配置保存。导入新版JSON后橙色操作中规则生效；Linux无需为此显示变更重启。
+
+### 0.7.4 RSSI指示器部署
+
+部署时发现用户已于22:06重新启动旧Windows接收端；只读确认CLI已停止、active为空且无pending后，已重启接收端加载本版，沿用COM3/115200/native。导入最新版布局后，RSSI指示器在“CLI 日志与控制”的车辆任务表下方。未发送CLI操作或改写模块寄存器。Windows模块已开启数据RSSI，本版serial.append_rssi_pc=true；Linux模块开关未知，append_rssi_linux保留false，不能因Windows开启就假定Linux也开启。
+
+两端模块分包必须保持240字节，serial.module_packet_bytes=240只记录设置，不自动读写硬件。解析前提为一条应用帧对应一个模块无线包，不支持在应用帧中间插RSSI或多个应用帧共用一个尾字节。关闭硬件RSSI时同步关闭软件解析开关。先显示原始0..255数值，包尾dBm换算和硬件追加粒度未实测，不显示虚构强弱等级。指示器等待/过期/断开有明确提示。Linux若不启用自身RSSI解析，无需为Windows本地指示器升级；其他既有功能升级要求不变。本轮未运行测试、WSL或实机操作。
+
+部署只读观察：新版接收端/radio/link.rssi返回enabled=true、valid=true、raw=197（0xC5），同一快照samples=326、packets_rx=326、framing_errors=0。仅为当时接收观察，不代表覆盖所有分包/换算/断链场景的实机验收；未运行自动测试、WSL、构建或模块参数写入。
