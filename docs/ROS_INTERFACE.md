@@ -165,3 +165,5 @@ ROS所有权、消息字段及源时间语义沿用原接口。CLI新增 `.runti
 默认UART 115200，link.air_rate_bps=62500仅描述硬件空速，不写模块；总预算3000 B/s包含双向帧、确认及重试。目标车辆4 Hz、传感器快照每2秒；实际频率随帧长、日志和重试变化。几何源时间继续按原规则对齐，本机乱序缓冲默认0.5秒。本轮未执行验证。
 
 0.6.1：会话变化后重新公告同名Foxglove通道，客户端通道ID可变化；缓存重新绑定新ID并保留原源时间。无线帧和ROS接口不变。
+
+0.6.2当前策略：radio_run.journal与radio_log_events指向manager.events.jsonl，run.json的manager_radio_events亦为该文件；L/b消息、源时间、stream ID与A落盘确认格式不变。选择完整stream后，info、菜单/检查、普通构建、GNSS状态及错误原文全部按原顺序传输。更新并重启CLI及Linux发送端建立新scope，避免在已选旧scope内改换stream。

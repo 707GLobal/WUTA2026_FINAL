@@ -506,3 +506,5 @@ CLI日志所有者在 `.runtime/fsd_manager/radio_run.json` 原子发布当前sc
 两端UART为115200，空速配置62500 bit/s；应用总预算3000 UART B/s，PC仍只响应Linux轮询并支持双向扩展。PC仅接收当前stream，收到新scope后重置Foxglove会话、重放当前几何缓存并清除上一轮CLI显示；不新增ROS发布者或控制出口。详细参数和升级限制见显示子模块radio_link/README.md。本轮按用户要求未执行测试、构建或实机验证。
 
 0.6.1补充：Foxglove会话切换由原FoxgloveView重建SDK通道并重新公告，JSON缓存重绑新通道、几何从当前快照重放，避免CLI重启后话题列表被清空且不恢复。不改变无线或ROS接口。
+
+0.6.2当前日志策略：原RunLog选择manager.events.jsonl完整事件流，替代必要journal作为无线源；原日志所有者、当前运行scope及持久化确认机制不变。不额外扫描组件原始文件或历史目录。

@@ -141,3 +141,7 @@ Linux在主仓库执行 `git pull --ff-only`、`git submodule update --init --re
 新CLI通过 `.runtime/fsd_manager/radio_run.json` 选择当前运行；无线不会自动补传历史目录。结束运行保留尾部续传，开始下一次运行切走旧队列；无需删除历史日志或断点。Foxglove会随scope更换重置会话，图表历史也随之清空。当前版仅完成源码修改与人工阅读，按用户要求未执行测试、构建、串口或实机验证。
 
 0.6.1显示修复：Windows接收端更新并重启一次，以加载会话重置后的通道重公告逻辑。此后CLI重启/切换运行继续在原Foxglove连接显示，无需手动断开重连；Linux发送协议及模块参数无变化。未执行自动化验证。
+
+## 无线0.6.2：当次完整日志（当前策略）
+
+在主仓库git pull --ff-only后执行git submodule update --init --recursive，同步CLI与显示子模块，重启Linux CLI和无线发送程序。新版选择文件应指向当次manager.events.jsonl完整事件流；不再以manager.radio.events.jsonl作为新版运行源，不用删除历史或断点。Windows代码/布局同步更新，日志面板标题为“本次启动完整日志”，完整事件编码与接收格式未变化。115200、62500 bit/s与3000 UART B/s配置保持；不增加组件日志目录扫描。按要求本轮未执行验证。

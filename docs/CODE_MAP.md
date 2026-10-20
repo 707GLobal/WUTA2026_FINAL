@@ -74,3 +74,5 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 - 同目录 `link.py`、`configuration.py`、`ros_sender.py` 与 `radio.yaml`：3000 B/s总预算、空速/串口相关参数检查及50 ms发送端采集调度；`foxglove_view.py`处理当前scope显示会话切换。未执行本轮测试。
 
 0.6.1：`radio_link/fsd_radio/foxglove_view.py:_create_channels/_reset_session`统一通道创建及会话切换后的通道重公告，避免使用关闭的缓存通道。
+
+0.6.2：`fsd_startup/log_context.py:RunLog.radio_selection`与`manager.py:publish`指向manager.events.jsonl全文；`radio_link/fsd_radio/cli_telemetry.py:CliForwarder.scan`接收该完整源，并兼容旧必要journal名。必要事件规则仅用于旧子集产物，不再筛选新版无线流。
