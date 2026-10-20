@@ -76,3 +76,5 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 0.6.1：`radio_link/fsd_radio/foxglove_view.py:_create_channels/_reset_session`统一通道创建及会话切换后的通道重公告，避免使用关闭的缓存通道。
 
 0.6.2：`fsd_startup/log_context.py:RunLog.radio_selection`与`manager.py:publish`指向manager.events.jsonl全文；`radio_link/fsd_radio/cli_telemetry.py:CliForwarder.scan`接收该完整源，并兼容旧必要journal名。必要事件规则仅用于旧子集产物，不再筛选新版无线流。
+
+最终规划路径开关位于显示子模块src/fsd_visualization/config/fsd.rviz的Final planned path；源话题沿用topics.yaml，radio_link/radio.yaml的layers.path为1秒/权重3/4个Marker/每Marker48点，PC通道/radio/scene/path。

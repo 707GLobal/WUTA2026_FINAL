@@ -508,3 +508,5 @@ CLI日志所有者在 `.runtime/fsd_manager/radio_run.json` 原子发布当前sc
 0.6.1补充：Foxglove会话切换由原FoxgloveView重建SDK通道并重新公告，JSON缓存重绑新通道、几何从当前快照重放，避免CLI重启后话题列表被清空且不恢复。不改变无线或ROS接口。
 
 0.6.2当前日志策略：原RunLog选择manager.events.jsonl完整事件流，替代必要journal作为无线源；原日志所有者、当前运行scope及持久化确认机制不变。不额外扫描组件原始文件或历史目录。
+
+2026-10-20最终规划路径：打开既有RViz模板图层，由现有无线配置解析器同步启用；只消费path_generator已有可视化结果或显示桥的planned_path，无新规划生产者。路径无线目标间隔1秒、权重3；日志全文及双向总预算保持。

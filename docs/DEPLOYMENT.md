@@ -145,3 +145,7 @@ Linux在主仓库执行 `git pull --ff-only`、`git submodule update --init --re
 ## 无线0.6.2：当次完整日志（当前策略）
 
 在主仓库git pull --ff-only后执行git submodule update --init --recursive，同步CLI与显示子模块，重启Linux CLI和无线发送程序。新版选择文件应指向当次manager.events.jsonl完整事件流；不再以manager.radio.events.jsonl作为新版运行源，不用删除历史或断点。Windows代码/布局同步更新，日志面板标题为“本次启动完整日志”，完整事件编码与接收格式未变化。115200、62500 bit/s与3000 UART B/s配置保持；不增加组件日志目录扫描。按要求本轮未执行验证。
+
+## 启用最终规划路径（2026-10-20）
+
+同步显示子模块后，重新部署并重启RViz与无线发送端。使用ROS安装副本启动RViz时先重新运行显示仓库build.sh更新安装模板；无线直接读取源码模板。沿用原native/bridge模式：native消费/planning/final_waypoints_viz，bridge消费/fsd_visualization/planned_path；显示桥须运行，不能混用模式。Foxglove现有/radio/scene/path图层已启用，无需重新建立连接。路径目标1秒、权重3，实际随日志、快照帧长及重试变化。未执行验证，待Linux拉取部署后生效。
