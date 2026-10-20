@@ -181,3 +181,5 @@ ROS几何/定位/速度/任务接口不变。`/fsd_radio/extension/tx`既有JSON
 PC SDK新增Parameters能力：selection/module按需读取，yaml/<模块>/<完整路径>修改PC草稿，meta/*只读；Publish保存按钮成组提交revision+changes，由CLI原工作线程执行。新增本机SDK通道 `/radio/cli/control`，快照用Linux心跳源时间，内嵌结果用自身执行结束源时间。boot/run绑定、持久去重、超时未知状态与配置生效边界见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。不新增驾驶/任务控制话题，管理启动/停止由CLI既有业务执行。
 
 无线0.7.1：RPC数据块及ACK新增可选p=1（指令）/0（普通数据），缺省0；成功/错误业务回复按原操作分类进入同优先级。cli.check/start/stop/status/result、config.set及其ACK/回复走独立指令FIFO，config.list/read走普通扩展FIFO。指令每次新分片选择时优先于日志/几何，无新ROS话题、无新串口通道，总预算保持。PC /radio/link新增command_queue计数；extension_queue只计普通扩展。旧端兼容解析，但须配套更新才能在两方向实现优先级。
+
+0.7.2仅PC显示增加/radio/cli/control.display_state，来自原phase与在线/新鲜度判定；源时间保持原CLI心跳值。用于原生状态Indicator，原ROS及无线协议不变。

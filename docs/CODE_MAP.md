@@ -100,3 +100,5 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 完整使用、源时间、文件来源、运行生效边界见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。
 
 0.7.1调度：显示 `radio_link/fsd_radio/link.py:Outbox.commands/next_piece` 为独立指令FIFO；`rpc.py:CONTROL_OPERATIONS/send/accept/tick`传播优先级并保留容量；`cli_control.py`按操作分类请求/回复；`worker.py`与Endpoint清理断链/换会话的两个队列。CLI `control_api.py:pump`优先选择待处理指令。回归源码 `radio_link/tests/test_command_priority.py`，本轮未运行。
+
+CLI状态指示：显示radio_link/fsd_radio/cli_control.py:PcControl.tick派生display_state，radio_link/foxglove_layout.json的Indicator!cliState消费，位于CLI控制页顶部；原phase/online仍保留在详情，不新增无线采集。

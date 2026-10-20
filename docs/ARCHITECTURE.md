@@ -524,3 +524,5 @@ CLI日志所有者在 `.runtime/fsd_manager/radio_run.json` 原子发布当前sc
 ## 无线0.7.1：指令调度与数据隔离
 
 Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与执行结果优先于日志/几何；普通参数读取仍在数据队列。RPC保留2/8在途名额供指令。CLI ControlAPI按操作类别优先选择待处理邮箱项，业务仍在Manager原线程执行，不中断进行中的检查或启动，不改驾驶与日志所有权。总UART预算、轮询角色、源时间与持久去重保持；两端及CLI须配套升级。
+
+无线0.7.2：PC Control适配器从既有在线判定和CLI phase生成display_state，仅供“CLI 控制与参数”顶部原生Indicator显示；离线时覆盖旧运行状态，不改变CLI业务状态、无线字段或源时间。
