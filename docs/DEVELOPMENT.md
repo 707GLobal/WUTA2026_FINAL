@@ -205,3 +205,11 @@ bash -n start_fsd_manager.sh fsd_startup/autostart.sh fsd_startup/window.sh fsd_
 运行记录归 `RunLog` 管理；`manager.log`、`fsd_modules/`、`external_log/`、`zlgCAN_log/`、`chcnav_log/`、`configs/`、`artifacts/`及 `trajectory/` 沿用 [LOGGING](LOGGING.md) 的结构。任务诊断输出由管理器收集，UI不另建运行目录或第二套归档机制。
 
 修改前查看主仓库和相关子模块状态，保留已有无关修改。改当前源码，不改build/install副本。改UI操作同步README和相关测试；改文件定位或职责同步ARCHITECTURE/CODE_MAP；改变真正的ROS接口才修改ROS_INTERFACE。
+
+### 5.9 CLI配置编辑与无线API（2026-10-20）
+
+本地E键 `ConfigEditor` 和无线RPC共用 `ControlAPI` 邮箱；Manager.pump原线程是操作唯一执行者，原键盘c/s/x经Manager.operate复用checks/start/stop。心跳线程不得执行进程或写配置业务。`--headless --menu`为无终端常驻等待入口，部署参数仍透传原根脚本。
+
+YAML选择由宿主tools.configuration_files统一维护；ConfigStore负责revision、定长标量补丁、事务备份、原子替换和manifest刷新。禁止在无线适配层另写YAML或创建第二套启动器。新增模块、改参数来源或校验时同步目录、原审计与文档。编辑器使用Input/Select/Button，Tab/Enter操作，原主页面仍只读审计快照；历史测试中“无输入框/按钮”仅适用于未打开编辑器的主页面。
+
+Foxglove Parameters回调只访问锁保护缓存，不等待串口；PC主循环执行RPC和发布更新。Linux无线只写邮箱，管理操作不经ROS通用扩展再次执行。详细契约与未运行的验证范围见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。

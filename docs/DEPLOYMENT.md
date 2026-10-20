@@ -159,3 +159,11 @@ Linux在主仓库执行 `git pull --ff-only`、`git submodule update --init --re
 ## 配置文件与CLI清单的边界（2026-10-20）
 
 标准根入口默认从FSD源码config加载核心11模块，与CLI预检查清单同源；CLI“模块配置”仅显示上次预检查写入的manifest，不查询在线参数。外部修改YAML后先重做预检查；主要算法参数默认需要重启节点，ROS参数写入成功不能证明算法内部已更新。显式文件/模型/CAN/串口及运行目录覆盖、额外驱动/外参配置见[配置核对](FOXGLOVE_PARAMETERS.md)。Foxglove Parameters尚未接入Linux YAML读写，此文档仅给出设计，没有改动当前节点参数。
+
+## 无线0.7.0：CLI参数与操作控制
+
+Linux主仓库 `git pull --ff-only` 后执行 `git submodule update --init --recursive`，配套更新CLI、显示与宿主tools。重启CLI与独立无线程序；CLI保留原部署选项，菜单常驻可用 `bash start_fsd_manager.sh --menu --skip-build`，无终端可用 `--headless --menu --skip-build --no-rviz`。不要同时开启第二个CLI或串口读者；不带--menu仍按原行为自动启动。
+
+Windows重启 `radio_link/start_windows.ps1`（默认COM3/115200），导入新版foxglove_layout.json并打开“CLI 控制与参数”。先等待在线状态/目录，再选择selection/module、编辑草稿、点击保存；保存不自动重启相关进程。检查/启动/停止按钮均调用原CLI业务；停止FSD会保留CLI和独立无线程序供后续启动，原管理入口--stop仍清理并退出管理器。
+
+PC/Linux系统时间保持同步，CLI源心跳大于10秒或未来偏差超过5秒会拒绝新操作。radio_linux只保存Linux的radio.yaml，双端链路参数不自动同步。具体来源、字段、事务、超时和本地E键用法见 [参数与操作说明](FOXGLOVE_PARAMETERS.md)。本轮按用户要求未执行测试、构建、WSL或实机操作，未重启当前接收程序或现场CLI，需部署后加载。

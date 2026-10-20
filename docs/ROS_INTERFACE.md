@@ -171,3 +171,11 @@ ROS所有权、消息字段及源时间语义沿用原接口。CLI新增 `.runti
 2026-10-20：启用既有/planning/final_waypoints_viz（native）或/fsd_visualization/planned_path（bridge）无线消费，Foxglove沿用/radio/scene/path。目标1秒、权重3，最多4个Marker且每Marker48点；源时间、抽样几何与现有帧格式不变，不等同于全量Lane消息上传。
 
 PC新增/radio/cli/dashboard SDK通道，仅为现有CLI快照的本地显示投影：source_stamp_ns为原快照源时间，states为gnss/ins/lidar/camera/fusion状态码（0未收到、1在线、2源端超时、3缓存过期），gnss_quality为原详情状态码或-1未知，rows为中文表格字段。receive_age_s/stale为本机显示元数据；每秒刷新不改变原样本源时间，不是新传感器样本或ROS话题。无线接口不变。
+
+## 无线0.7.0：CLI统一管理接口
+
+ROS几何/定位/速度/任务接口不变。`/fsd_radio/extension/tx`既有JSON发布入口新增本机截获的 `{"type":"cli","action":"check|start|stop|save|reload|status"}`，PC转为RPC，Linux拦截cli_rpc/cli_rpc_ack后投递CLI邮箱，不再转发这些内部消息到通用ROS扩展接收话题。
+
+新增通用无线消息k=cli_control：t为CLI心跳Unix纳秒字符串，含boot、online、phase、running、run、active、last、config_error，目标2秒更新。RPC块body含type、id、dir、i，数据另含n与base64 data；原扩展512字节限制及轮询主从规则不变。压缩JSON最多256KiB，业务回复含最终ok/result/error与Linux source_stamp_ns，块ACK不代表执行成功。
+
+PC SDK新增Parameters能力：selection/module按需读取，yaml/<模块>/<完整路径>修改PC草稿，meta/*只读；Publish保存按钮成组提交revision+changes，由CLI原工作线程执行。新增本机SDK通道 `/radio/cli/control`，快照用Linux心跳源时间，内嵌结果用自身执行结束源时间。boot/run绑定、持久去重、超时未知状态与配置生效边界见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。不新增驾驶/任务控制话题，管理启动/停止由CLI既有业务执行。

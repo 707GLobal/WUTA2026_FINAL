@@ -4,9 +4,14 @@ import argparse,json,math,yaml
 ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'WUTA-FSD/ros2_ws/src'
 def parameters(p):
     document=yaml.safe_load(Path(p).read_text())
+    return document_parameters(document)
+
+def document_parameters(document):
     return next(v['ros__parameters'] for v in document.values() if isinstance(v,dict) and 'ros__parameters' in v)
-def manifest(controller=None,can=None,model='',can_device=''):
-    files={'controller':Path(controller or SRC/'control/controller/config/controller.yaml'),
+
+def module_files(controller=None,can=None):
+    """The launcher audit and CLI editor share this source catalog."""
+    return {'controller':Path(controller or SRC/'control/controller/config/controller.yaml'),
       'can':Path(can or SRC/'system/can_interface/config/can_interface.yaml'),
       'camera':SRC/'perception/camera_detection/config/camera_detection.yaml',
       'adapter':SRC/'perception/camera_detection/config/stereo_adapter.yaml',
@@ -17,7 +22,20 @@ def manifest(controller=None,can=None,model='',can_device=''):
       'planning':SRC/'planning/path_generator/config/path_generator.yaml',
       'ekf':SRC/'localization/localization_manager/config/ekf.yaml',
       'mission':SRC/'system/mission_manager/config/mission_manager.yaml'}
-    v={k:parameters(p) for k,p in files.items()}
+
+def configuration_files(controller=None,can=None,calibration=None,base_to_zed=None):
+    return {**module_files(controller,can),
+      'rslidar':SRC/'perception/detection_fusion/config/rsm1_hardware.yaml',
+      'zed':SRC/'perception/detection_fusion/config/zed_hardware.yaml',
+      'ins':ROOT/'humble-chcnav-cgi_ros2pkg/src/chcnav/config/chcnav_fsd_bridge.yaml',
+      'camera_lidar':Path(calibration or ROOT/'config/camera_lidar.yaml'),
+      'base_to_zed':Path(base_to_zed or ROOT/'config/base_to_zed.yaml'),
+      'visualization':ROOT/'fsd-visualization-code/src/fsd_visualization/config/topics.yaml',
+      'radio_linux':ROOT/'fsd-visualization-code/radio_link/radio.yaml'}
+def manifest(controller=None,can=None,model='',can_device='',documents=None):
+    files=module_files(controller,can)
+    documents=documents or {}
+    v={k:document_parameters(documents[k]) if k in documents else parameters(p) for k,p in files.items()}
     def need(ok,message):
         if not ok:raise ValueError(message)
     for mission in ('acceleration','ebs','skidpad','trackdrive'):
@@ -29,7 +47,7 @@ def manifest(controller=None,can=None,model='',can_device=''):
     # CAN回退到54a6038后只读取steer.max_steer_angle；核对实际被节点消费的参数。
     need(v['controller']['vehicle']['max_steer_angle']==v['can']['steer']['max_steer_angle'],'控制器与CAN最大转角必须相同')
     for a,b,msg in [(v['camera']['output_topic'],v['adapter']['boxes_topic'],'图像检测→立体'),(v['adapter']['output_topic'],v['fusion']['camera_topic'],'立体→融合'),(v['adapter']['output_info_topic'],v['fusion']['camera_info_topic'],'CameraInfo→融合'),(v['lidar']['output_topic'],v['fusion']['lidar_topic'],'雷达检测→融合'),(v['lidar']['input_topic'],v['fusion']['pointcloud_topic'],'点云输入')]:need(a==b,msg+'话题不一致')
-    driver=yaml.safe_load((SRC/'perception/detection_fusion/config/rsm1_hardware.yaml').read_text())['lidar'][0]['ros']
+    driver=(documents['rslidar'] if 'rslidar' in documents else yaml.safe_load((SRC/'perception/detection_fusion/config/rsm1_hardware.yaml').read_text()))['lidar'][0]['ros']
     need(driver['ros_send_point_cloud_topic']==v['lidar']['input_topic'],'M1驱动与雷达检测输入话题不一致')
     need(v['mission']['lidar_topic']==v['lidar']['input_topic'],'任务自检雷达话题不一致')
     need(v['mission']['camera_topic']==v['camera']['image_topic'],'任务自检相机话题不一致')

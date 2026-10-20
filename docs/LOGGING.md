@@ -163,3 +163,9 @@ CLI两种组件日志界面共用`dashboard.component_log_files`，覆盖`fsd_mo
 ## 0.6.2：完整转发当次CLI日志（当前策略）
 
 按用户确认，从当前RunLog的manager.events.jsonl读取全部事件，取消无线必要信息筛选；普通GNSS状态、检查进度、普通构建输出、菜单提示和完整错误堆栈，只要由CLI主日志记录，均携带原源时间顺序发送。manager.radio.events.jsonl保留为旧兼容产物，其筛选不影响新版无线源。组件独立日志文件没有进入CLI主日志的部分不另行上传。仍仅选择当前运行，新scope切走旧队列；PC全文落盘、显示有界缓存和持久化确认继续沿用。
+
+## CLI管理请求与配置事务（无线0.7.0）
+
+`.runtime/fsd_manager/control/`是管理会话状态，独立于RunLog归档：heartbeat.json含boot/运行/活动请求；inbox/<UUID>.json为请求；results/<UUID>.json先写executing再写最终ok/result/error/source_stamp_ns；transactions/<UUID>.json含配置原内容备份和提交阶段，config_state.json保守记录待确认加载项。配置保存/接口失败仍由原Manager.emit记入当前CLI日志，不另建业务日志生命周期。
+
+结果UUID、请求内容hash和持久executing标记用于去重。执行途中CLI崩溃可能留下未知结果，不擅自重新执行；可用control_api.py cli.result --request-id查询。未完成请求/事务存在时不要删除该目录；事务恢复发现外部文件冲突会报错待人工处理。启动/停止不替换原运行journal、scope或完整日志传输规则。

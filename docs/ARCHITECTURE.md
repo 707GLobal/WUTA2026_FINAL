@@ -512,3 +512,11 @@ CLI日志所有者在 `.runtime/fsd_manager/radio_run.json` 原子发布当前sc
 2026-10-20最终规划路径：打开既有RViz模板图层，由现有无线配置解析器同步启用；只消费path_generator已有可视化结果或显示桥的planned_path，无新规划生产者。路径无线目标间隔1秒、权重3；日志全文及双向总预算保持。
 
 原生传感器面板（2026-10-20）：原FoxgloveView从既有CLI快照格式化PC显示通道/radio/cli/dashboard，原生Indicator/Gauge/Table消费状态、频率、参数和新鲜度。只属本机展示，不新增日志/传感器所有者、ROS订阅、无线数据或扩展安装依赖。
+
+## CLI统一参数/操作接口与无线0.7.0（2026-10-20）
+
+按用户选择方案1扩展CLI所有者：`fsd_startup/control_api.py`拥有持久请求邮箱和执行结果，Manager.pump原工作线程串行调原checks/start/stop；独立心跳线程只写状态。`config_store.py`复用宿主tools的配置目录与manifest校验，拥有注释保留补丁、版本冲突检查、备份及事务保存。`config_editor.py`是本地E键编辑入口，不另设配置目录或进程启动器。
+
+显示无线侧新增 `radio_link/fsd_radio/rpc.py`（有界分块可靠传输）和 `cli_control.py`（Linux邮箱传输与PC草稿/参数适配）。Linux无线不直接改YAML、不管理FSD进程；Foxglove原生Parameters/Publish最终委托CLI既有操作。只读ROS显示桥边界保持；此次新增的是经CLI授权的管理操作接口，不是驾驶GO/转向/油门出口。
+
+18项配置目录归 `tools/check_fsd_module_configs.py:configuration_files`；原11模块manifest用于审计快照，新增编辑读取实际文件。保存与运行生效明确区分，保存不自动重启。CLI需常驻，停止FSD保留CLI及独立无线进程；启动就绪以phase/日志为准。接口/部署详见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。本轮未运行测试、构建、WSL或实机操作。

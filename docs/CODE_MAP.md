@@ -84,3 +84,17 @@ CLI完整日志源：`fsd_startup/log_context.py:append_manager_event`、`fsd_st
 当前交付和目录索引见[DELIVERY.md](DELIVERY.md)：无线唯一布局源为radio_link/foxglove_layout.json，新鲜度与GNSS质量为background，接收年龄为bar；旧方案及工具临时文件不作为开发入口。
 
 配置来源核对与原生Parameters接入设计见[FOXGLOVE_PARAMETERS.md](FOXGLOVE_PARAMETERS.md)。CLI模块配置实际读取预检查manifest；它与根入口默认的11个模块YAML同源，但不含全部驱动/外参配置，也不代表节点当前采用值。参数远程读写为待实现设计。
+
+## CLI统一参数与无线管理入口（0.7.0）
+
+| 功能 | 入口与所有权 |
+| --- | --- |
+| 配置来源目录、原有交叉校验 | `tools/check_fsd_module_configs.py:configuration_files/module_files/manifest`；供审计与编辑共用 |
+| CLI统一操作与持久结果 | `fsd_startup/control_api.py`；Manager.pump原线程调用Manager.operate，心跳不执行业务 |
+| YAML版本/注释/备份/事务 | `fsd_startup/config_store.py`；CLI唯一写入者，目录定位依赖宿主tools |
+| CLI本地配置编辑 | `fsd_startup/config_editor.py`，`terminal_ui.py` E键；同邮箱接口 |
+| 无线RPC分块 | `fsd-visualization-code/radio_link/fsd_radio/rpc.py`；复用既有512字节扩展 |
+| CLI邮箱与PC参数桥 | `radio_link/fsd_radio/cli_control.py`（相对显示子模块）；不另起进程管理器 |
+| Parameters与操作按钮 | `foxglove_view.py` SDK回调、`pc_receiver.py` PC调度、`foxglove_layout.json`原生面板 |
+
+完整使用、源时间、文件来源、运行生效边界见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。

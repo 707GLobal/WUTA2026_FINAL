@@ -1,12 +1,12 @@
-# Foxglove参数面板：配置来源核对与接入设计
+# Foxglove参数面板与CLI统一管理接口
 
-2026-10-20，依据本仓库标准入口 `start_fsd_manager.sh` → `fsd_startup/manager.py` → `start_full_fsd.sh` 和各launch源码核对。本次只读审计与方案设计，没有连接Linux查询正在运行的进程/参数，未修改算法配置或实现远程写入。
+2026-10-20，按方案1实现：配置读写归CLI所有，Foxglove经既有无线链路调用同一接口；检查、启动、停止复用Manager。依据标准入口 `start_fsd_manager.sh` → `fsd_startup/manager.py` → `start_full_fsd.sh` 和各launch源码核对。仅本机源码实现与人工阅读，未运行测试、WSL、构建或实机操作，未改动现场YAML。
 
 ## 结论
 
-Foxglove原生Parameters可以充当参数读写界面，但它是数据源的参数客户端，不是通用YAML文件编辑器。必须在现有PC WebSocket服务和Linux文件所有者之间补充参数读写桥。
+Foxglove原生Parameters用于读取和编辑草稿，原生Publish按钮提交保存、检查、启动、停止、查询状态与丢弃草稿后重新读取。PC WebSocket已公告Parameters；Linux无线适配器只写CLI请求邮箱，不另建配置写入器或进程管理器。
 
-CLI清单中的11个核心模块与标准全车入口使用同一批源码YAML。CLI界面读取的是预检查保存的manifest快照；它没有实时打开所有YAML、没有查询ROS在线参数，也没有编辑保存接口。不能把“同一源文件”“上次检查值”“启动覆盖后的值”“算法当前采用值”混为一项。
+CLI清单中的11个核心模块与标准全车入口使用同一批源码YAML。原模块配置页仍读取manifest审计快照；新增E键编辑页与无线接口直接读取所选文件，共享扩展至18项的目录清单。不能把“同一源文件”“上次检查值”“启动覆盖后的值”“算法当前采用值”混为一项。
 
 ## 核心模块对照
 
@@ -28,9 +28,9 @@ CLI清单中的11个核心模块与标准全车入口使用同一批源码YAML�
 
 根入口显式把config_root设为FSD源码src目录；感知节点由 `perception/detection_fusion/launch/fusion_modules_hardware.launch.py` 加载上述camera/adapter/lidar/fusion文件。即使launch本身来自安装包，这个显式参数仍指向源码配置；但Linux安装的launch若未更新，不能只凭Windows源码证明其一致。
 
-## 当前CLI没有完整列出的配置
+## 额外接入的配置
 
-| 文件（相对主仓库） | 实际用途 | CLI清单覆盖情况 |
+| 文件（相对主仓库） | 实际用途 | 原11模块审计快照范围（新增编辑器均已接入） |
 | --- | --- | --- |
 | `WUTA-FSD/ros2_ws/src/perception/detection_fusion/config/rsm1_hardware.yaml` | RoboSense驱动config_path | 审计函数读取它检查点云话题，但未放进files/parameters |
 | `WUTA-FSD/ros2_ws/src/perception/detection_fusion/config/zed_hardware.yaml` | ZED驱动ros_params_override_path | 未列入11模块 |
@@ -62,49 +62,77 @@ CLI清单中的11个核心模块与标准全车入口使用同一批源码YAML�
 - ZED publish_tf、publish_map_tf在根入口显式关闭。
 - sensor-only不启动定位/建图/规划/控制/任务，并从显示topics.yaml生成当次副本，关闭这些显示输入；清单含参数不表示模块正在运行。
 
-## Parameters面板设计（待实现）
+## 使用方式（无线0.7.0）
 
-原生面板适合按模块展示数值、布尔、字符串和数组。将YAML中的配置项映射为有类型的参数，保留ROS节点段及ros__parameters路径；驱动的非ROS结构单独解析。不要把全部YAML作为一大段字符串让用户手工编辑。
+两端更新源码后重启CLI、Linux无线发送端和Windows接收端。导入 `fsd-visualization-code/radio_link/foxglove_layout.json`，打开“CLI 控制与参数”页，无需自定义Foxglove扩展。
 
-建议明确分组：
+1. Linux保留CLI常驻。终端菜单：`bash start_fsd_manager.sh --menu --skip-build`；无终端：`bash start_fsd_manager.sh --headless --menu --skip-build --no-rviz`。使用原现场部署选项，远程启动沿用这些选项；只有--menu才避免管理器打开后立即启动。
+2. Linux无线程序独立常驻，沿用原native/bridge模式和E22串口。CLI停止FSD时保留管理器和遥测采集，无线程序由独立终端管理，才能再次远程启动。
+3. Parameters的 `selection/module` 填模块键；可用键见 `meta/modules`。初始读取controller；每次选择新模块才传该文件，已读取模块缓存在PC。
+4. 编辑 `yaml/<模块>/<完整YAML路径>`，这是本机草稿。`meta/dirty_count`为草稿参数数；切换模块不会丢弃草稿，可一起修改controller与can等关联配置。
+5. 点击“保存配置”，按各模块revision组装一次事务，由Linux CLI串行执行类型检查、有限数、既有跨模块一致性校验、备份、原子替换和manifest刷新。Linux返回成功后才清除相应草稿；不会自动停止或重启。
+6. “检查”“启动”“停止”调用Manager原操作。“启动”成功表示子进程流程已提交；是否完成全栈检查看phase和实时日志。“停止”清理该CLI登记的FSD进程，保留CLI；它不等同于旧的 `start_fsd_manager.sh --stop`（清理并退出管理器）。
+7. “查询CLI状态”读取检查结果与运行状态；“丢弃草稿并重新读取”明确丢弃PC草稿、刷新文件revision。提交失败时草稿保留，文件被外部修改需重新读取并编辑。
 
-| 分组 | 含义 |
+所有Foxglove客户端共享同一个PC接收进程的草稿缓存。`meta/*`只读，状态错误在 `meta/status` 和 `/radio/cli/control` 显示。CLI重启会清空旧缓存/草稿，重新获取新boot下的文件；临时断链不自动提交或重试新的操作。PC与Linux系统时间需同步；PC只允许源时间10秒内且接收8秒内的在线CLI状态发起请求，未来偏差超过5秒同样视为离线。
+
+## 参数与结果字段
+
+| 字段 | 含义 |
 | --- | --- |
-| yaml/<模块>/<参数路径> | Linux当前选中文件的值，可修改保存 |
-| meta/<模块>/source | 当前实际文件路径，只读 |
-| meta/<模块>/revision | 文件内容版本，用于发现与CLI/磁盘修改冲突 |
-| meta/<模块>/restart_required | 修改是否待重启生效，只读 |
-| effective/<模块>/<参数路径> | 已知启动覆盖后的值，标明覆盖来源 |
-| runtime/<节点>/<参数> | 未来按需查询的ROS参数值，只读起步；不等同于算法内部已经采用值 |
+| `selection/module` | 可修改的模块选择；不是YAML参数 |
+| `yaml/<模块>/<路径>` | 文件原层级，JSON Pointer转义，保留ROS节点段/ros__parameters；修改暂存PC |
+| `meta/modules` / `meta/loaded_modules` | 当前可用模块与已缓存模块 |
+| `meta/<模块>/source` | Linux实际选中的绝对路径 |
+| `meta/<模块>/revision` | 原始文件SHA256；保存要求匹配，防止覆盖他人修改 |
+| `meta/<模块>/restart_required` | 保存后尚未确认相关进程重新加载；保守持久保留，不凭启动返回清除 |
+| `meta/online` / `meta/status` | CLI心跳可用性及操作/保存结果 |
+| `meta/last_request_id` / `meta/last_action_ok` | 最近操作的Linux返回结果；不是串口ACK |
+| `/radio/cli/control` | boot、run、phase、running、active、last、pending、草稿数与完整操作result/error |
 
-UI只写yaml分组；保存成功反馈“Linux已保存，待重启生效”。只有算法具备明确热更新机制、回读与运行验证时，才能标成“运行中已应用”。标准控制器、路径规划、建图、边界、任务等实现主要在构造时读取参数并保存成员/算法实例，未发现通用参数回调把后续修改应用到内部配置。ROS参数服务即使接受新值，也不能据此宣称算法热更新成功。
+结果中的 `source_stamp_ns` 为Linux执行结束的Unix纳秒字符串；CLI控制快照用Linux心跳源时间，内嵌结果保留自己的执行源时间。PC本地草稿数/排队文字属于显示元数据，不是新的Linux样本。未加入ROS runtime/effective参数查询；不宣称算法已热更新。MODEL、CAN_IFACE、INS_PORT、运行输出目录和ZED TF等启动覆盖仍按前述规则优先。
 
-建议沿用一个配置目录清单：扩展现有 `tools/check_fsd_module_configs.py` 的文件选择与交叉校验，让CLI与无线配置处理共用；不要另外硬编码一份容易漂移的YAML列表。磁盘写入由Linux侧配置所有者统一处理，PC仅缓存和转发。
+18项模块键：controller、can、camera、adapter、lidar、fusion、mapping、boundary、planning、ekf、mission、rslidar、zed、ins、camera_lidar、base_to_zed、visualization、radio_linux。缺失文件在目录中标available=false，不阻止其他模块读取。radio_linux只改Linux副本，需重启无线进程；Windows副本不随远程保存同步，改变串口/量化/链路参数前需配套维护双端配置。
 
-数据流程：
+## CLI本地编辑与共享API
+
+Textual菜单按E打开编辑器，选择模块/参数，输入JSON值，Tab选择“暂存此参数”并Enter，最后“保存全部草稿”。可在多个模块中积累草稿；Esc关闭，未提交草稿丢弃，已提交请求继续由Manager完成。JSON字符串必须加双引号。原配置审计页保留，保存会更新manifest。
+
+逐行/无界面模式可从主仓库根目录调用：
+
+```bash
+python3 fsd_startup/control_api.py cli.status
+python3 fsd_startup/control_api.py config.list
+python3 fsd_startup/control_api.py config.read --module controller
+python3 fsd_startup/control_api.py cli.check
+python3 fsd_startup/control_api.py cli.start
+python3 fsd_startup/control_api.py cli.stop
+python3 fsd_startup/control_api.py cli.result --request-id <原始32位请求ID>
+```
+
+`config.set --updates`接收JSON列表，每项为 `{"module":"controller","revision":"<read返回的SHA256>","changes":{"/<完整路径>":1.2}}`。多个模块放在同一列表校验。此客户端也只投递邮箱，不直接执行进程或写YAML。超时后查原ID，不能据“未收到结果”断言操作未执行。
+
+## 实现与协议边界
 
 ```mermaid
 flowchart LR
-  P[Foxglove原生Parameters] <--> W[现有PC WebSocket参数适配]
-  W <--> R[E22现有双向链路]
-  R <--> L[Linux配置读写处理]
-  L <--> Y[实际选中的模块源码YAML]
-  L --> M[现有manifest校验与CLI审计刷新]
+  T[CLI E键/本地API客户端] --> Q[CLI请求邮箱]
+  F[Foxglove Parameters/Publish] --> P[PC草稿与RPC适配]
+  P <-->|既有E22轮询/扩展| R[Linux邮箱传输适配]
+  R --> Q
+  Q --> M[Manager原操作线程]
+  M --> C[共享ConfigStore与原配置目录/审计]
+  M --> O[原checks/start/stop]
+  C --> Y[实际选中YAML与manifest]
 ```
 
-当前PC仅公告ClientPublish，未实现Parameters的get/set/subscribe处理；Linux扩展上行只是转发到 `/fsd_radio/extension/rx`，仅Ping有内置Pong，没有YAML读写处理。仅在布局里增加Parameters面板不能自动完成上述流程。
+- CLI所有者：`fsd_startup/control_api.py`处理 `.runtime/fsd_manager/control/inbox/<id>.json`；同目录results存持久结果，heartbeat.json由轻量线程每秒刷新。业务始终在Manager.pump原线程执行，心跳线程不做启动/停止/配置保存。
+- `fsd_startup/config_store.py`复用 `tools/check_fsd_module_configs.py:configuration_files/manifest`。仅可编辑目录内既有标量和标量数组，数组不改长度；不新增/删除键，不支持null、别名、merge key、重复键或特殊YAML类型写入。标量位置补丁保留注释与层级；备份和事务记录保存在control/transactions，未完成事务启动时回滚，外部并发修改冲突会报错供人工处理。
+- 类型与现有审计约束会检查；这不等于每个驱动/算法参数都有完整业务范围校验。保存额外驱动或显示文件也不证明运行进程已读取。多文件事务逐文件原子替换，Manager内部串行；外部绕过CLI的读取者可能看见提交中间态，改动相关配置时应统一经CLI管理并在完成后重启。
+- 无线 `cli_control.py` 是传输/缓存适配，`rpc.py` 是有界分块：JSON最大256KiB，zlib压缩后每块144字节再base64，最多8个在途请求/回复，每块应用ACK、2秒重传，传输/执行等待约180秒。复用单条512字节扩展，不增加串口读者或第二条无线通道。
+- 扩展body类型 `cli_rpc` / `cli_rpc_ack`，含id、dir(request/reply)、i，数据块另含n、data。块ACK只证明重组/投递，不代表业务执行完成；最终 `ok/result/error` 才是CLI执行结果。
+- 统一操作：cli.status、cli.result、cli.check、cli.start、cli.stop、config.list、config.read、config.set。请求含32位UUID、CLI boot、expires_ns、source_stamp_ns；stop另绑定当前run。执行前持久化executing标记，同ID不再次执行；若CLI执行途中崩溃，返回结果未知，不擅自再次启动。持久请求/结果不要在有在途指令时清理。
+- `cli_control`新增独立心跳消息，目标每2秒，和日志/几何共享3000 UART B/s预算。配置只按需读取；大配置传输会临时占用原扩展时隙并降低其他数据实际刷新率，不承诺固定分配比例。
+- 默认仅本机WebSocket/TCP入口；收到请求只调CLI固定操作/目录，不接受任意shell命令或任意文件路径。不增设GO、赛项切换、油门、制动或转向业务出口。
 
-接入时应有的行为：
-
-- 按模块按需读取、分页返回；使用现有参数类型，不连续广播全部配置。
-- 现有扩展单条消息上限512字节，配置清单或大数组需应用层分页/分块；不能直接塞入整份manifest。
-- 修改发送参数名、新值、请求ID和期望文件revision；Linux按当前路径目录清单定位文件，不接收任意路径。
-- 校验类型、有限数和既有跨模块约束（例如控制器与CAN最大转角一致、感知话题一致）；失败返回具体原因。
-- 修改涉及互相约束的多个模块时成组校验，避免一次保存造成半套不一致配置。
-- 校验后备份并原子保存，保留YAML注释和原有层级；更新CLI审计清单，保存结果回传。
-- 请求ID支持超时查询和重复请求去重；只有收到Linux持久化结果才能显示保存成功，串口ACK/本机排队不算保存成功。
-- 配置保存不隐式重启进程，也不默认在线改写驾驶算法；明确显示待重启状态。
-
-本节为接入设计，不代表上述参数读写已实现。当前仅完成源码路径核对，未运行测试、WSL或硬件验证。
-
-参考：[Foxglove Parameters](https://docs.foxglove.dev/docs/visualization/panels/parameters)。PC已安装SDK 0.29.2的websocket.ServerListener提供on_get_parameters、on_set_parameters和订阅回调，可在现有服务上扩展，无需自定义面板。
+按用户要求，本版仅完成源码修改、文档和人工审查，未执行自动测试、WSL、构建、串口或实车验证。两端与CLI必须配套升级；本机代码更新不代表Linux已部署或功能已在线生效。
