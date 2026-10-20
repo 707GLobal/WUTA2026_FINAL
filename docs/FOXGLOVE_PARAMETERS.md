@@ -62,9 +62,9 @@ CLI清单中的11个核心模块与标准全车入口使用同一批源码YAML�
 - ZED publish_tf、publish_map_tf在根入口显式关闭。
 - sensor-only不启动定位/建图/规划/控制/任务，并从显示topics.yaml生成当次副本，关闭这些显示输入；清单含参数不表示模块正在运行。
 
-## 使用方式（无线0.7.0）
+## 当前使用方式（接口自0.7.0，当前无线0.7.4）
 
-两端更新源码后重启CLI、Linux无线发送端和Windows接收端。导入 `fsd-visualization-code/radio_link/foxglove_layout.json`，打开“CLI 控制与参数”页，无需自定义Foxglove扩展。
+两端更新源码后重启CLI、Linux无线发送端和Windows接收端。导入 `fsd-visualization-code/radio_link/foxglove_layout.json`，打开“参数控制”读取/编辑/保存；“CLI 日志与控制”用于检查、启动、停止和查询，无需自定义Foxglove扩展。
 
 1. Linux保留CLI常驻。终端菜单：`bash start_fsd_manager.sh --menu --skip-build`；无终端：`bash start_fsd_manager.sh --headless --menu --skip-build --no-rviz`。使用原现场部署选项，远程启动沿用这些选项；只有--menu才避免管理器打开后立即启动。
 2. Linux无线程序独立常驻，沿用原native/bridge模式和E22串口。CLI停止FSD时保留管理器和遥测采集，无线程序由独立终端管理，才能再次远程启动。
@@ -147,14 +147,14 @@ flowchart LR
 
 ## 0.7.2 CLI状态面板
 
-“CLI 控制与参数”顶部新增原生背景Indicator，读取PC派生display_state：运行/通过为绿色，等待操作/FSD已停止为蓝色，检查/构建/启动为橙色，失败为红色，等待心跳/离线为灰色。直接消费CLI原phase，不另判全栈就绪；心跳过期覆盖为离线，原phase仍保留在详情。只需重启Windows接收程序并导入新版布局，Linux及无线字段无需变化，不增加带宽。
+当前“CLI 日志与控制”显示原生CLI阶段Indicator，读取PC派生display_state；操作中为橙色，离线优先。其初版位于已拆分的合并页。原phase及时间保留在详情，不另行判断全栈就绪。
 
 ## 当前页面划分：CLI操作与参数控制分离
 
-“CLI 日志与传感器”右侧的/radio/cli/dashboard.rows表格区域顶部包含CLI状态指示、检查、启动、停止和查询CLI状态；原车辆/任务表保留在下方。完整日志仍在左侧，日志传输和操作结果详情位于左侧下部。
+“CLI 日志与控制”保留日志、传输/结果详情、CLI状态及检查/启动/停止/查询、vehicle.rows车辆任务表；表下为RSSI原始值。dashboard.rows传感器表格与原始传感器详情仅在“传感器概览”。
 
-原“CLI 控制与参数”页已更名“参数控制”，只放Parameters、保存配置、丢弃草稿并重新读取；参数保存结果看meta/status。本文早前版本章节中的旧页名属于历史布局。此次只改布局，不改RPC操作、优先级或源时间；无需重启接收端或Linux，导入新版JSON即可。
+“参数控制”页只放Parameters、保存配置、丢弃草稿并重新读取；保存结果看meta/status。旧页名仅属历史。仅换布局无需重启，新增PC显示字段需加载新版接收端。
 
-最终页面划分：原CLI日志与传感器页已更名“CLI 日志与控制”，不再显示传感器表格；CLI状态/操作与日志、车辆任务、结果详情同页。“传感器概览”集中显示设备指示、GNSS质量、快照年龄、dashboard.rows表格和原始传感器详情；原始诊断页移除重复的传感器详情。“参数控制”仍独立。重新导入布局即可，无需重启。
+RSSI见/radio/link.rssi：显示原始0..255及过期/断开提示，不假定包尾dBm换算。配置开关必须与接收模块匹配，硬件240字节分包及单应用帧单无线包为解析前提；Linux本地RSSI未额外回传。
 
 CLI状态新增橙色“操作中”：PC有管理指令排队/等待结果，或心跳active表明CLI正在执行管理操作；完成或超时后恢复原阶段，离线覆盖操作中。自动config.list/read不算管理操作。此为PC显示状态，保留原phase和源时间，/radio/cli/control.busy供查看；只需加载新版Windows接收端及布局。

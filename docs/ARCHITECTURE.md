@@ -389,7 +389,7 @@ wuta_logs/
 - `trajectory/segments/<赛项>/<YYYYmmdd_HHMMSS>_<序号>/` 记录赛项切换或规划节点重启后的新分段，分析时应递归读取。
 - `fsd_modules/` 仅保存 FSD 包节点输出，按 perception/localization/mapping/planning/control/system 分类；外部驱动、静态 TF 和 RViz 在 `external_log/`。
 - `zlgCAN_log/`、`chcnav_log/` 由既有设备日志的 `--log-dir` 指向本次运行目录，不再写包内日志。
-- `run.json` 记录 `mission`、`mission_source`、`vcu_mode`、`mode`、`args` 和目录索引；`manager.events.jsonl` 保留完整 CLI 事件，`manager.radio.events.jsonl` 只保留无线必要事件。
+- `run.json` 记录 `mission`、`mission_source`、`vcu_mode`、`mode`、`args` 和目录索引；`manager.events.jsonl` 保留完整CLI事件，且自0.6.2起为当前无线日志源；`manager.radio.events.jsonl`仅保留历史必要事件兼容产物。
 - 模块输出与结果通过路径参数进入统一目录，算法不负责移动运行目录。
 任务机产生权威门控诊断；只读监控和界面仅消费诊断，不反向控制任务。
 监控异常只告警，车辆模块仍按原监管规则运行。详见 [运行日志](LOGGING.md)。
@@ -421,7 +421,7 @@ wuta_logs/
 | 显示`src/fsd_visualization/fsd_visualization/configuration.py`、`src/fsd_visualization/launch/view.launch.py` | 布局渲染与显示桥/RViz组装，不启动FSD驾驶算法 |
 | 显示`src/fsd_visualization/config/{topics.yaml,fsd.rviz}`、`src/fsd_rviz_plugins/src/safe_image.cpp` | 显示话题/布局与安全图像插件；修改显示优先走现有配置/桥/插件 |
 | 显示`radio_link/fsd_radio/{ros_sender,geometry,protocol,link,transport,worker}.py` | 115200 bps串口/62.5 kbps空速无线显示传输：消费标准显示Marker与真实位姿/速度，采样TF、量化、限量、双向扩展；复用原显示配置生成器，不生产权威算法结果 |
-| 显示`radio_link/fsd_radio/{pc_receiver,foxglove_view,cli}.py` | Windows COM3接收及Foxglove官方SDK显示，独立扩展JSON接口；Linux串口必填，不读取惯导串口、不发布驾驶或任务控制指令 |
+| 显示`radio_link/fsd_radio/{pc_receiver,foxglove_view,cli}.py` | Windows COM3接收及Foxglove官方SDK显示，独立扩展JSON接口；Linux串口从radio.yaml选择或由启动参数覆盖，不读取惯导串口、不发布驾驶或任务控制指令 |
 | 显示`radio_link/fsd_radio/essentials.py` | 2026-10-19必要几何schema 2/3：二进制坐标/点差分、必要尺寸/姿态、来源色索引与时间；固定样式在PC生成，完整快照替换处理增删，新接收端兼容旧消息 |
 
 华测、ZLG路径相对各自仓库；显示路径相对`fsd-visualization-code`。模型、物理标定与驱动overlay按实际入口选择，不能把包内样例或另一份显示配置当作正在加载的资产。
@@ -525,7 +525,7 @@ CLI日志所有者在 `.runtime/fsd_manager/radio_run.json` 原子发布当前sc
 
 Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与执行结果优先于日志/几何；普通参数读取仍在数据队列。RPC保留2/8在途名额供指令。CLI ControlAPI按操作类别优先选择待处理邮箱项，业务仍在Manager原线程执行，不中断进行中的检查或启动，不改驾驶与日志所有权。总UART预算、轮询角色、源时间与持久去重保持；两端及CLI须配套升级。
 
-无线0.7.2：PC Control适配器从既有在线判定和CLI phase生成display_state，仅供“CLI 控制与参数”顶部原生Indicator显示；离线时覆盖旧运行状态，不改变CLI业务状态、无线字段或源时间。
+无线0.7.2：PC Control适配器从既有在线判定和CLI phase生成display_state，供当前“CLI 日志与控制”的原生Indicator显示（初版合并页现已拆分）；离线时覆盖旧运行状态，不改变CLI业务状态、无线字段或源时间。
 
 当前Foxglove布局的“CLI 日志与控制”只放CLI状态/检查/启动/停止/查询、日志、车辆任务及操作结果；dashboard.rows传感器表格和原始传感器详情仅在“传感器概览”。“参数控制”页只承载Parameters和保存/重新读取。仅显示布局归组，业务所有权、无线数据和优先级保持。
 

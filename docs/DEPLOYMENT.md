@@ -1,13 +1,13 @@
 # 部署与运行
 
 
-> 2026-10-13复核（同步当日工作）；本页命令供开发者执行。本次文档整理未启动实车、发车或改动运行配置。
+> 主链路原核对日期2026-10-13；无线/CLI条目已于2026-10-20按0.7.4复核。带版本日期的旧章节保留历史条件；当前无线默认值以radio.yaml及下述环境说明为准。本次文档审计未启动或停止设备。
 
 ## 1. 环境与文件
 
-E22低带宽双向遥测与Windows Foxglove显示可选组件见[radio_link部署说明](../fsd-visualization-code/radio_link/README.md)。它独立启动，Linux只消费既有ROS显示/定位数据，Windows默认COM3；不由全车入口自动启用。Linux串口通过radio.yaml配置或启动参数覆盖，避免占用惯导端口；原生显示输入与bridge输入须按实际运行模式选择。当前要求串口115200 bps 8N1、模块空速62.5 kbps；软件仍按160字节/秒保守限速，仅提供降采样预览，首次接入需完成说明中的串口、ROS/TF、空口与Foxglove验收。
+E22低带宽双向遥测与Windows Foxglove显示可选组件见[radio_link部署说明](../fsd-visualization-code/radio_link/README.md)。它独立启动，Linux只消费既有ROS显示/定位数据，Windows默认COM3；不由全车入口自动启用。Linux串口通过radio.yaml配置或启动参数覆盖，避免占用惯导端口；原生显示输入与bridge输入须按实际运行模式选择。当前要求串口115200 bps 8N1、模块空速62.5 kbps；当前软件双向合计预算3000 UART B/s，显示仍采用采样几何，首次接入需完成说明中的串口、ROS/TF、空口与Foxglove验收。
 
-历史版本radio_link 0.2.0使用必要几何schema 2（当前0.3.0升级见末节），升级时先更新/重启PC接收端，再更新/重启Linux发送端；保留双端一致的fixed_frame和量化步长，PC样式在`radio.yaml:foxglove.styles`配置。旧PC不能解码新几何消息，新PC兼容旧消息，升级后应通过`/radio/layers`中各图层的`schema`字段确认已收到schema 2。
+历史版本radio_link 0.2.0使用必要几何schema 2（当前无线0.7.4、几何schema 3），升级时先更新/重启PC接收端，再更新/重启Linux发送端；保留双端一致的fixed_frame和量化步长，PC样式在`radio.yaml:foxglove.styles`配置。旧PC不能解码新几何消息，新PC兼容旧消息，升级后应通过`/radio/layers`中各图层的`schema`字段确认已收到schema 2。
 
 ROS 2 Humble、系统Python3.10、colcon/ament、PCL/Eigen/tf2、RViz及包内声明依赖；相机推理还需匹配 GPU/CUDA/TensorRT 与 engine 的依赖。构建产物不可跨机器直接视为可用。
 
@@ -118,11 +118,11 @@ ros2 run tf2_ros tf2_echo map base_link
 
 修改源码配置后重启相应启动入口生效，不修改install副本、不启动硬件验证；直接使用已安装launch的部署需先重建华测包以更新安装配置。已运行的CLI应重新打开以加载默认值。
 
-## 无线0.3.0源时间升级
+## 无线0.3.0源时间升级（历史部署记录）
 
 先更新并重启Windows接收端，再在Linux主项目根`git pull --ff-only`和`git submodule update --init fsd-visualization-code`，重新运行无线setup与原模式的start_linux.sh。沿用已核对的E22串口和native/bridge模式，勿同时开两个读者。`/radio/layers`确认schema=3后导入子模块`radio_link/foxglove_layout.json`；速度路径改为`/radio/speed.speed_m_s`。默认本机增加3秒乱序缓冲，不提高160字节/秒预算。全纳秒与逐对象时间会增加包长，原刷新间隔仅为调度目标，成本、字段、源时间缺失和混合时钟边界见[无线说明](../fsd-visualization-code/radio_link/README.md)。本轮仅本机开发验证，Linux由使用者拉取部署，不代表已完成实机ROS/TF与双端schema 3无线验收。
 
-## CLI无线日志与传感器（0.5.1）
+## CLI无线日志与传感器（0.5.1历史部署记录）
 
 无线0.5.1必须同时更新CLI和显示子模块：在主项目根`git pull --ff-only`后执行`git submodule update --init --recursive`。按现场原流程重新打开CLI与无线发送程序，保持原模式/串口；旧进程不会自动加载筛选规则。默认144字节数据片要求模块240字节分包；UART总预算仍160 B/s，PC只响应轮询。导入radio_link/foxglove_layout.json，切到“CLI 日志与传感器”。出现`manager.radio.events.jsonl`且telemetry.json含sensors_data才具备新数据；CLI首次必要事件前可没有必要journal。检查`/fsd_radio/status.cli`和PC `/radio/cli/transfer`、`/radio/cli/health`，保留未确认journal和PC磁盘数据。旧全文journal不作为无线源，不回填旧版本未记录的事件；Linux完整日志继续保留。
 
@@ -176,7 +176,7 @@ PC/Linux系统时间保持同步，CLI源心跳大于10秒或未来偏差超过5
 
 0.7.2 CLI状态指示：本机Windows接收端已重启加载PC派生display_state，COM3/115200/native保持；重启前只读状态为等待操作、无在途请求。Foxglove重新导入radio_link/foxglove_layout.json或output/FSD_E22_CLI与传感器.json后，CLI控制页顶部出现背景状态面板。Linux无需为此次面板升级或重启；未发送实车操作或执行测试。
 
-当前布局调整无需重启程序：重新导入radio_link/foxglove_layout.json或output/FSD_E22_CLI与传感器.json。CLI状态与检查/启动/停止/状态查询在“CLI 日志与传感器”的传感器表格区域；参数编辑/保存/重新读取在独立“参数控制”页。
+当前只换布局无需重启程序：导入radio_link/foxglove_layout.json或output/FSD_E22_CLI与传感器.json；CLI状态/操作、车辆任务和RSSI在“CLI 日志与控制”，专用传感器信息在“传感器概览”，参数编辑/保存在“参数控制”。新增PC代码字段仍需加载新版接收端。
 
 最终布局导入后，页名为“CLI 日志与控制”“传感器概览”“参数控制”：专用传感器表格和原始详情仅在传感器概览，CLI页已移除这些组件。无需重启程序，仅重新导入JSON。
 

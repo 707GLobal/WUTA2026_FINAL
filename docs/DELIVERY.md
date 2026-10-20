@@ -1,58 +1,45 @@
-# 工作目录与当前交付
+# 当前源码与交付入口
 
-## 源码入口
+2026-10-20按无线0.7.4核对。当前参数以radio.yaml、实际模块设置和CLI选定文件为准；本页不把历史版本说明当作现场生效证据。
 
-| 路径（主仓库内） | 用途 |
+## 当前功能和布局
+
+串口115200 8N1、模块空速62500 bit/s、软件双向合计3000 UART B/s；指令/相应ACK/结果走独立优先级，批量参数读取走普通数据队列。当次CLI主日志全文转发，不补历史或组件独立文件。
+
+| 选项卡 | 内容 |
 | --- | --- |
-| `fsd-visualization-code/radio_link/radio.yaml` | 串口、无线总预算与刷新目标 |
-| `fsd-visualization-code/radio_link/foxglove_layout.json` | 唯一当前Foxglove布局 |
-| `fsd-visualization-code/radio_link/fsd_radio/` | Linux发送、Windows接收与本机显示 |
-| `fsd-visualization-code/radio_link/README.md` | 无线部署与接口细节 |
-| `fsd_startup/` | CLI、日志生产与当前运行选择 |
+| 车辆与场景 | 3D几何、车速与曲线 |
+| CLI 日志与控制 | 完整日志、CLI状态/操作中、检查/启动/停止/查询、车辆任务；vehicle.rows表格下方RSSI原始值 |
+| 传感器概览 | 五类设备状态、新鲜度、GNSS质量、快照年龄、dashboard.rows表格和原始传感器详情 |
+| 原始诊断 | 日志传输和车辆任务原始数据，不重复放专用传感器组件 |
+| 参数控制 | Parameters读取/草稿、保存、重新读取；保存不热更新或自动重启 |
 
-Foxglove“传感器概览”使用原生Indicator/Gauge/Table；五类设备状态、数据新鲜度与GNSS质量使用背景色，快照接收年龄使用0～20秒条形仪表。原始字段保留在“原始诊断”页。无需扩展包。
+RSSI本机显示原始0..255值，未确认包尾dBm换算；Windows软件解析开启，Linux默认关闭，分别匹配硬件附加RSSI开关。真实模块分包240字节且一应用帧一无线包为前提。详细接口与限制见[无线README](../fsd-visualization-code/radio_link/README.md)、[CLI/参数说明](FOXGLOVE_PARAMETERS.md)。
 
-## 本机目录
+## 源码与维护
 
-Windows工作目录为 `D:\ebyte`，Git主仓库为其下 `WUTA2026_FINAL`。
-
-| 目录 | 保留内容 |
+| 路径 | 用途 |
 | --- | --- |
-| `WUTA2026_FINAL/` | 主项目源码与Git子模块 |
-| `output/` | 当前开发说明、当前布局及源码交付包 |
-| `tmp/` | 接收端重定向日志、诊断记录和仍可能使用的本机辅助环境 |
-| `archive/20261020_obsolete/` | 从tmp/output移出的45个过期截图、旧布局、临时补丁与脚本，以及空扩展草稿目录 |
-| 根目录说明书和串口/模块配置工具 | 原始参考及现场工具 |
+| fsd-visualization-code/radio_link/radio.yaml | 两端各自读取的串口、RSSI解析开关、预算和目标间隔 |
+| fsd-visualization-code/radio_link/foxglove_layout.json | 唯一当前布局源 |
+| fsd-visualization-code/radio_link/fsd_radio/ | 无线、CLI接口适配和PC显示 |
+| fsd_startup/ | CLI管理、配置保存、日志生命周期 |
+| tools/check_fsd_module_configs.py | CLI共享配置目录与原一致性审计 |
 
-旧文件采用可恢复归档，未永久删除。清理未触及串口工具、PDF说明书、正在使用的无线`.venv`、当前接收日志或用户运行journal/断点。归档不参与源码打包，也不提交Git。
+CLI及显示各是独立Git子模块，修改在子模块提交推送后，主仓库提交对应指针。默认Windows COM3；Linux无线设备不能复用惯导串口。
 
-## 当前交付文件
+## 本机交付文件
 
-`D:\ebyte\output`只保留以下四项：
+工作目录D:\ebyte，主仓库WUTA2026_FINAL。output保留四个交付文件：
 
-- `E22_Windows_Android_开发文档.md`：原模块开发说明。
-- `E22_Windows_Android_开发文档.pdf`：上述说明的PDF交付。
-- `FSD_E22_CLI与传感器.json`：从唯一布局源复制的当前导入文件。
-- `FSD_E22_Foxglove_源码.zip`：显示子模块的源码交付包。
+- E22_Windows_Android_开发文档.md/pdf：原模块首版开发设计资料，包含旧方案与未来Android方向，不是当前FSD无线部署配置。
+- FSD_E22_CLI与传感器.json：当前布局导入副本；文件名保留兼容，内部选项卡按上表拆分。
+- FSD_E22_Foxglove_源码.zip：显示子模块源码包，不包含CLI子模块、宿主tools/docs、虚拟环境、缓存或现场日志；完整部署应拉取主仓库及全部子模块。
 
-后两项从当前显示源码生成；压缩包不包含虚拟环境、缓存、构建/安装产物或现场日志。`fsd-visualization-code/SHA256SUMS`随源码变更更新。
+源码ZIP与fsd-visualization-code/SHA256SUMS从当前Git源码生成。tmp为本机辅助脚本和接收日志；archive/20261020_obsolete保留可恢复归档的旧布局、截图与45个临时文件。归档不参与当前交付，不删除用户日志和断点。
 
-导入布局：在Foxglove布局菜单选择导入JSON，选择当前布局文件，再打开“传感器概览”。此次样式调整无需重启接收程序或Linux。
+## 加载与验证范围
 
-## 0.7.0配置与CLI控制更新
+完整升级：先等待在途管理操作完成，主仓库git pull --ff-only、git submodule update --init --recursive；Linux配套加载CLI与无线程序，Windows加载接收端并导入新版JSON。仅修改布局重新导入即可；PC显示/RSSI解析代码更新需加载Windows新版，Linux不启用自身RSSI时无需因本地RSSI指示器重启。运行代码不会随git pull自动更新。
 
-当前布局新增“CLI 控制与参数”页，原生Parameters及Publish按钮接入CLI配置读取/保存、检查、启动、停止。详细用法见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。本机output布局与源码ZIP随本版源码更新；CLI实现与宿主tools/docs通过各自Git仓库交付，不包含在显示子模块ZIP内，部署应拉取主仓库并更新全部子模块。
-
-此次需更新并重启CLI、Linux无线和Windows接收端，然后重新导入布局。先前“样式调整无需重启”只指0.6.3样式变更，不能用于本版。按用户要求未运行测试、构建、WSL或串口验证，也未重启当前程序。
-
-0.7.1：源码交付包和SHA256SUMS更新为指令/数据双队列版本；布局无变化。两端无线与CLI需配套更新，独立指令队列状态见/radio/link.command_queue。回归用例已写入源码，按要求未执行。
-
-0.7.2：当前布局/源码ZIP增加CLI控制页顶部背景状态Indicator；更新Windows接收端后重新导入布局，Linux无需为本次面板变更重启。
-
-当前布局已分为CLI操作/日志/传感器与独立参数控制：output导入JSON、源码ZIP和SHA256SUMS同步更新，仅需重新导入布局，无需重启两端或改无线配置。
-
-最新交付布局：CLI页去除传感器表格、更名“CLI 日志与控制”；专用传感器信息统一放入“传感器概览”，参数控制独立。当前JSON、ZIP和校验清单同步。
-
-0.7.3布局、源码ZIP、SHA256SUMS同步更新，CLI状态增加橙色操作中；Windows接收端需加载新版，重新导入布局，Linux无需为此显示变更重启。
-
-0.7.4当前布局/源码ZIP/校验清单同步：增加包尾RSSI可选解析与CLI页车辆任务表下方的原始值指示器，Windows解析配置已开启，Linux默认关闭；240字节模块包为前提。发现旧接收端已被重新启动后，确认无在途操作并重启加载新版；需导入新版布局，未运行测试或实机验收。
+本机0.7.4接收端已加载，并只读观察过RSSI RAW 197、326个接收样本、framing_errors=0；只是当时观察，不是全场景验收。本次文档审计没有启动/停止设备或执行测试、WSL、构建、CLI操作。旧版本验证证据见显示子模块VALIDATION.md，不能替代当前实机验收。
