@@ -153,3 +153,5 @@ Linux在主仓库执行 `git pull --ff-only`、`git submodule update --init --re
 ## Foxglove原生传感器面板（2026-10-20）
 
 本机更新显示子模块源码并重启Windows接收端，随后通过Foxglove布局菜单导入radio_link/foxglove_layout.json，切换“传感器概览”。仅使用原生Indicator/Gauge/Table，无需安装.foxe扩展包；原“CLI 日志与传感器”保留全文日志，增加“原始诊断”页。需要本版PC派生dashboard通道，Linux无需为此次界面调整重启或改参数。本轮未运行自动化验证。
+
+布局样式调整仅需重新导入新版foxglove_layout.json：新鲜度、GNSS质量为背景样式，接收年龄为0～20秒条形显示。接收进程、COM3和Linux无需为此重启。当前交付文件及可恢复旧文件的位置见[目录索引](DELIVERY.md)。
