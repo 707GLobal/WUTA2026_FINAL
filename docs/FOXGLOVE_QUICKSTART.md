@@ -8,6 +8,8 @@ Linux端保持CLI和无线发送程序运行。Windows接收程序未运行时�
 .\fsd-visualization-code\radio_link\start_windows.ps1
 ```
 
+默认自动识别USB适配器，无需填写COM号；同时插入多个同型号适配器时，按提示选择，或用 `-Port COM3` 手动指定。
+
 Foxglove选择“打开连接 → Foxglove WebSocket”，连接：
 
 ```text

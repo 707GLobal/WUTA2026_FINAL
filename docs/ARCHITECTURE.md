@@ -532,3 +532,5 @@ Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与�
 无线0.7.3仅PC增加操作中显示：复用CLI active与本机管理指令队列/pending派生busy和display_state，不改CLI业务phase，不新增无线数据；后台参数自动读取不触发操作中。
 
 无线0.7.4：原串口Framer可按接收端配置提取有效帧后的RSSI字节，SerialTransport提供本机采集时间/新鲜度，RadioWorker将其投影到原/radio/link.rssi，CLI页vehicle.rows下方Indicator显示原始强度值。只属无线接收元数据，不是传感器采集或新无线数据生产者；不改应用包和CLI业务，Linux接收RSSI不额外上传。前提是240字节模块包且一应用帧对应一无线包，换算未核验时不标dBm。
+
+无线0.7.5：Windows端在原RadioWorker串口所有者内调用ports.resolve_pc_port，按USB VID/PID与可选序列号/位置自动选择，断链重连重新枚举；无设备等待、多个候选报错，不通过模块探测创建第二个串口读者。识别的是USB适配器，不认证E22型号；Linux及业务/无线消息保持。

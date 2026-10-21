@@ -108,3 +108,5 @@ CLI状态指示：显示radio_link/fsd_radio/cli_control.py:PcControl.tick派生
 PcControl.tick的busy/display_state是CLI操作中指示入口，Indicator!cliState显示橙色；使用原活动操作与本机管理请求，排除config.list/read。CLI业务执行与优先级不变。
 
 RSSI入口：显示radio_link/fsd_radio/protocol.py:Framer的可选包尾字节状态，transport.py:rssi_status本机采集/新鲜度，worker.py按角色选择serial.append_rssi_pc/linux并输出/radio/link.rssi，configuration.py约束240字节分包；foxglove_layout.json的Indicator!radioRssi位于Table!taskState下方。原始单位，不假定dBm；test_rssi.py用例未运行。
+
+Windows自动串口：显示radio_link/fsd_radio/ports.py:resolve_pc_port只枚举/匹配；worker.py在原重连循环选择实际端口；radio.yaml:serial.pc_port=auto与pc_usb配置；start_windows.ps1默认跟随配置，-Port仍手动覆盖。test_ports.py用例未运行。
