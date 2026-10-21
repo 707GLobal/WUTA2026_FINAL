@@ -5,6 +5,8 @@
 
 ## 1. 环境与文件
 
+CLI与无线联启：正常运行 `start_fsd_manager.sh` 时，CLI通过已有无线 `radio_link/start_linux.sh` 拉起独立会话，默认bridge；`--radio-mode native`切换新发送进程输入，已有进程原样复用。`--no-radio`仅运行CLI；`--check`、`--status`、`--stop`和`--build-only`不联启。有桌面时新发送端在独立GNOME终端运行，无桌面时回退独立后台进程；已有发送端打开日志查看窗口。输出追加到 `.runtime/fsd_radio/linux.log`，窗口适配为 `fsd_startup/radio_window.sh`，与CLI车辆进程登记解耦，CLI退出不停止无线。独立启动无线仍用原脚本；发送端持有 `sender.lock`防重，依赖/启动失败只提示，不阻断CLI。单独结束无线使用其PID的SIGINT；CLI下次启动可再次拉起，不会周期性自动重启。
+
 E22低带宽双向遥测与Windows Foxglove显示可选组件见[radio_link部署说明](../fsd-visualization-code/radio_link/README.md)。它独立启动，Linux只消费既有ROS显示/定位数据，Windows默认COM3；不由全车入口自动启用。Linux串口通过radio.yaml配置或启动参数覆盖，避免占用惯导端口；原生显示输入与bridge输入须按实际运行模式选择。当前要求串口115200 bps 8N1、模块空速62.5 kbps；当前软件双向合计预算3000 UART B/s，显示仍采用采样几何，首次接入需完成说明中的串口、ROS/TF、空口与Foxglove验收。
 
 历史版本radio_link 0.2.0使用必要几何schema 2（当前无线0.7.4、几何schema 3），升级时先更新/重启PC接收端，再更新/重启Linux发送端；保留双端一致的fixed_frame和量化步长，PC样式在`radio.yaml:foxglove.styles`配置。旧PC不能解码新几何消息，新PC兼容旧消息，升级后应通过`/radio/layers`中各图层的`schema`字段确认已收到schema 2。

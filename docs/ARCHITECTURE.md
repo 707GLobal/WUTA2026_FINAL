@@ -428,7 +428,11 @@ wuta_logs/
 
 ### 9.2 启动管理与日志
 
+CLI正常启动由 `manager.py:ensure_radio` 调用现有无线入口，以独立会话运行发送进程；有桌面时由 `radio_window.sh` 在独立GNOME终端显示并tee落盘，无桌面回退后台；不导入无线节点、不加入车辆进程登记，CLI退出不清理无线。无线仍可独立启动，`fsd_radio/cli.py`持有共享sender.lock防重；失败仅警告，CLI用`--no-radio`关闭联启，构建/检查/状态/停止入口不联启。
+
 惯导默认串口使用本机Prolific适配器的`/dev/serial/by-id/`路径，根启动、CLI预检查/权限和华测正式入口保持一致；设备更换通过现有串口覆盖参数接入，配置细节见[DEPLOYMENT](DEPLOYMENT.md)。
+
+独立显示入口 `fsd-visualization-code/start.sh` 通过 `scripts/environment.sh` 加载已有ROS/FSD安装环境：优先显式`FSD_SETUP`，否则保留已可用的消息环境，缺失时尝试相邻`WUTA-FSD/ros2_ws/install/setup.bash`。启动前检查必需消息，不构建或启动驾驶链。无线`radio_link/start_linux.sh`复用此环境加载器；其`setup_linux.sh`创建系统Python虚拟环境，缺少ensurepip时可使用已有系统pip安装依赖。
 
 | 文件 | 功能与边界 |
 | --- | --- |
@@ -459,7 +463,7 @@ wuta_logs/
 | `tools/{sim_metrics,summarize_wuta_sim,review_sim_geometry}.py`、`run_wuta_sim_regression.sh` | 路径指标、结果汇总、几何复核及批量回归；不在评估器另维护驾驶算法 |
 | 各模块和根`tools`的测试 | 验证已有实现/接口；仿真替代发布者只在隔离运行环境中使用 |
 
-当前显示保留旧速度话题，部分备用后端接口支持也不同；仿真应核对当前devpvt/GNSS契约，而非只复用历史通过记录。此类接入问题优先修正对应显示/适配/仿真模块，不新增重复速度桥、诊断状态机或感知链来绕过差异。
+2026-10-14显示默认速度已接入`/chcnav/velocity`；部分备用后端接口支持仍不同；仿真应核对当前devpvt/GNSS契约，而非只复用历史通过记录。此类接入问题优先修正对应显示/适配/仿真模块，不新增重复速度桥、诊断状态机或感知链来绕过差异。
 
 ## 10. 新需求的修改归属与开发前检查
 

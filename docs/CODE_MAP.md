@@ -24,7 +24,11 @@
 
 ## FSD 之外
 
+CLI与无线独立进程联启：`fsd_startup/manager.py:ensure_radio` → `fsd-visualization-code/radio_link/start_linux.sh`；终端适配 `fsd_startup/radio_window.sh`（GNOME窗口/tee日志，已有发送端用tail查看）；无线单实例锁在 `radio_link/fsd_radio/cli.py`，输出 `.runtime/fsd_radio/linux.log`。无线不登记到CLI车辆进程表，CLI退出后继续运行。
+
 惯导串口默认值与覆盖入口：根`start_full_fsd.sh`（INS_PORT/--ins-port）、CLI`fsd_startup/{checks,manager}.py`、华测`src/chcnav/config/chcnav_fsd_bridge.yaml`及`src/chcnav/{scripts/start_chcnav_fsd.sh,launch/chcnav_fsd_bridge.launch.py}`。默认绑定Prolific的by-id路径，避免ttyUSB重编号选错E22；具体设备见[DEPLOYMENT](DEPLOYMENT.md)。
+
+独立显示环境加载与启动依赖检查：`fsd-visualization-code/scripts/environment.sh`、`fsd-visualization-code/start.sh`；支持显式`FSD_SETUP`及本仓库相邻FSD安装环境；无线`radio_link/start_linux.sh`复用同一环境加载器，`setup_linux.sh`创建系统Python虚拟环境。
 
 | 功能 | 入口 |
 | --- | --- |

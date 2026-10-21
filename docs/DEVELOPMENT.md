@@ -213,3 +213,11 @@ bash -n start_fsd_manager.sh fsd_startup/autostart.sh fsd_startup/window.sh fsd_
 YAML选择由宿主tools.configuration_files统一维护；ConfigStore负责revision、定长标量补丁、事务备份、原子替换和manifest刷新。禁止在无线适配层另写YAML或创建第二套启动器。新增模块、改参数来源或校验时同步目录、原审计与文档。编辑器使用Input/Select/Button，Tab/Enter操作，原主页面仍只读审计快照；历史测试中“无输入框/按钮”仅适用于未打开编辑器的主页面。
 
 Foxglove Parameters回调只访问锁保护缓存，不等待串口；PC主循环执行RPC和发布更新。Linux无线只写邮箱，管理操作不经ROS通用扩展再次执行。详细契约与未运行的验证范围见 [FOXGLOVE_PARAMETERS](FOXGLOVE_PARAMETERS.md)。
+
+## CLI与无线独立终端联启（2026-10-20）
+
+`Manager.ensure_radio`在正常交互/菜单/headless启动时复用现有无线入口；单独检查、状态、停止和build-only不联启。`--no-radio`只运行CLI，`--radio-mode native`改变新发送进程的输入模式，默认bridge。发送端不加入车辆PID登记和清理列表，使用独立会话，CLI退出不停止无线；无线退出只告警，不自动重启。
+
+有桌面时调用GNOME独立终端和`fsd_startup/radio_window.sh`，发送输出经tee追加`.runtime/fsd_radio/linux.log`；已有发送端仅打开tail查看窗口。无桌面回退独立后台进程。发送进程持有`sender.lock`，窗口持有`terminal.lock`；CLI兼容识别升级前同配置的发送进程。
+
+组件日志列表刷新为空时调用Textual的`Select.clear()`。不能将`Select.BLANK`作为空选项值：本机Textual将其解析为布尔值False，会触发`InvalidSelectValueError`。日志列表非空时保留仍有效的原选项，否则选择首项。此次按用户要求未执行测试，只检查源码语法、Shell语法和差异格式。
