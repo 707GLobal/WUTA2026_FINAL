@@ -116,3 +116,5 @@ RSSI入口：显示radio_link/fsd_radio/protocol.py:Framer的可选包尾字节�
 Windows自动串口：显示radio_link/fsd_radio/ports.py:resolve_pc_port只枚举/匹配；worker.py在原重连循环选择实际端口；radio.yaml:serial.pc_port=auto与pc_usb配置；start_windows.ps1默认跟随配置，-Port仍手动覆盖。test_ports.py用例未运行。
 
 参数操作状态：radio_link/fsd_radio/cli_control.py的parameter_note/parameter_state及config回复/超时分支；foxglove_layout.json的Indicator!parameterState与RawMessages!parameterStatus位于参数控制页，普通CLI结果不覆盖参数详情。
+
+启动任务退出码指示：fsd_startup/manager.py:publish和control_api.py:status发布runtime_exit_code；显示cli_control.py:runtime_exit/EXIT_MEANINGS解释，LinuxControl转发心跳；Indicator!cliState包含退出码规则。exit_detail保留其他码，不推断具体硬件失败。

@@ -540,3 +540,5 @@ Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与�
 无线0.7.5：Windows端在原RadioWorker串口所有者内调用ports.resolve_pc_port，按USB VID/PID与可选序列号/位置自动选择，断链重连重新枚举；无设备等待、多个候选报错，不通过模块探测创建第二个串口读者。识别的是USB适配器，不认证E22型号；Linux及业务/无线消息保持。
 
 无线0.7.6：PcControl持有参数专用结果/详情并派生parameter_state，参数页原生Indicator消费；读取/草稿/保存/失败与CLI业务阶段独立，保存成功以Linux结果为准。不新增Linux写入者、无线字段或生命周期。
+
+无线0.7.7：CLI原Manager发布已有runtime_exit_code，经ControlAPI心跳/状态、Linux无线适配器传给PC；CLI状态Indicator显示启动任务退出码说明。执行所有权和退出逻辑不变，管理器/无线进程码不混入该字段，运行/明确失败阶段及离线/忙碌状态优先。

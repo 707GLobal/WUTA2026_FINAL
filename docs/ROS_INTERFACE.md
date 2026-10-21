@@ -191,3 +191,5 @@ PC SDK新增Parameters能力：selection/module按需读取，yaml/<模块>/<完
 0.7.5仅PC连接诊断/radio/link增加port_selection=auto/explicit，port为当前实际选择的COM号（尚未匹配时可为空）。默认按USB芯片匹配，不改变无线、ROS、CLI或RSSI格式。
 
 0.7.6 PC /radio/cli/control新增parameter_state与parameter_detail，供参数操作Indicator/详情显示，保存结果来自原config.set回复；不更改ROS或无线格式，原源时间保持。
+
+0.7.7 CLI心跳cli_control和cli.status新增可选runtime_exit_code（整数或null），来源为Manager的start_full_fsd子进程。PC /radio/cli/control增加exit_detail及exit_code_origin=start_full_fsd_child，display_state可为退出码:<值>或其他退出码；原phase/源时间保留。旧缺失字段可兼容，完整码显示需要CLI与发送端更新。ROS话题及执行请求格式不变。
