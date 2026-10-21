@@ -542,3 +542,5 @@ Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与�
 无线0.7.6：PcControl持有参数专用结果/详情并派生parameter_state，参数页原生Indicator消费；读取/草稿/保存/失败与CLI业务阶段独立，保存成功以Linux结果为准。不新增Linux写入者、无线字段或生命周期。
 
 无线0.7.7：CLI原Manager发布已有runtime_exit_code，经ControlAPI心跳/状态、Linux无线适配器传给PC；CLI状态Indicator显示启动任务退出码说明。执行所有权和退出逻辑不变，管理器/无线进程码不混入该字段，运行/明确失败阶段及离线/忙碌状态优先。
+
+无线0.7.8：Windows安装和接收入口共用windows_python.ps1选择解释器，优先项目虚拟环境并筛选版本/位数；启动额外筛选已声明PC依赖。安装仍仅由setup_windows.ps1执行，不增加串口或业务所有者。

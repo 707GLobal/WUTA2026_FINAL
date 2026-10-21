@@ -118,3 +118,5 @@ Windows自动串口：显示radio_link/fsd_radio/ports.py:resolve_pc_port只枚�
 参数操作状态：radio_link/fsd_radio/cli_control.py的parameter_note/parameter_state及config回复/超时分支；foxglove_layout.json的Indicator!parameterState与RawMessages!parameterStatus位于参数控制页，普通CLI结果不覆盖参数详情。
 
 启动任务退出码指示：fsd_startup/manager.py:publish和control_api.py:status发布runtime_exit_code；显示cli_control.py:runtime_exit/EXIT_MEANINGS解释，LinuxControl转发心跳；Indicator!cliState包含退出码规则。exit_detail保留其他码，不推断具体硬件失败。
+
+Windows Python自动发现：radio_link/windows_python.ps1:Find-RadioPython共用于setup_windows.ps1和start_windows.ps1，查找项目/已激活虚拟环境、Python Launcher、PATH及注册表，跳过商店占位程序，支持-Python覆盖。前者管理项目环境安装，后者只选择依赖可用环境并从源码目录启动。

@@ -8,6 +8,8 @@ Linux端运行 `bash start_fsd_manager.sh --menu`，CLI会在独立终端联启�
 .\fsd-visualization-code\radio_link\start_windows.ps1
 ```
 
+启动脚本自动寻找本机可用的Python，优先项目虚拟环境。首次使用或提示缺少依赖时，先执行 `.\fsd-visualization-code\radio_link\setup_windows.ps1`；需要64位Python 3.10以上。可加 `-Python 'D:\Python\python.exe'` 手动指定解释器。
+
 默认自动识别USB适配器，无需填写COM号；同时插入多个同型号适配器时，按提示选择，或用 `-Port COM3` 手动指定。
 
 Foxglove选择“打开连接 → Foxglove WebSocket”，连接：
