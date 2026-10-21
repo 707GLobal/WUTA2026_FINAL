@@ -160,3 +160,5 @@ flowchart LR
 RSSI见/radio/link.rssi：显示原始0..255及过期/断开提示，不假定包尾dBm换算。配置开关必须与接收模块匹配，硬件240字节分包及单应用帧单无线包为解析前提；Linux本地RSSI未额外回传。
 
 CLI状态新增橙色“操作中”：PC有管理指令排队/等待结果，或心跳active表明CLI正在执行管理操作；完成或超时后恢复原阶段，离线覆盖操作中。自动config.list/read不算管理操作。此为PC显示状态，保留原phase和源时间，/radio/cli/control.busy供查看；只需加载新版Windows接收端及布局。
+
+0.7.6：“参数控制”顶部增加操作状态Indicator、下部显示参数操作详情。灰色等待/离线、橙色读取/未保存/保存中、蓝色就绪、绿色Linux已保存（仍需相关进程重启）、红色失败/结果未知。独立于CLI普通操作结果，离线优先；只在config.set成功回复后标已保存。PC字段parameter_state/parameter_detail复用既有通道，不增加无线传输。

@@ -189,3 +189,5 @@ PC SDK新增Parameters能力：selection/module按需读取，yaml/<模块>/<完
 0.7.4仅PC /radio/link增加嵌套rssi：enabled/valid/raw/display_raw/age_s/captured_at_unix_ns/clock_domain/time_origin/samples/packet_session/packet_seq。raw为模块附加无符号字节，display_raw有效时0..255，否则-1等待/-2关闭/-3过期/-4断开。captured_at_unix_ns为本机UART捕获时间，time_origin=local_uart_capture，不是模块硬件时间或Linux ROS源时间。应用无线/ROS消息不变，模块包尾RSSI在原Framer提取，不进入应用CRC或JSON；依赖240字节模块分包、一应用帧一无线包及对应RSSI开关匹配。
 
 0.7.5仅PC连接诊断/radio/link增加port_selection=auto/explicit，port为当前实际选择的COM号（尚未匹配时可为空）。默认按USB芯片匹配，不改变无线、ROS、CLI或RSSI格式。
+
+0.7.6 PC /radio/cli/control新增parameter_state与parameter_detail，供参数操作Indicator/详情显示，保存结果来自原config.set回复；不更改ROS或无线格式，原源时间保持。
