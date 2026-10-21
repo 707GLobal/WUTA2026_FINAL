@@ -201,3 +201,5 @@ PC/Linux系统时间保持同步，CLI源心跳大于10秒或未来偏差超过5
 0.7.7退出码指示：更新主仓库及CLI/显示子模块，等待在途操作结束后按原流程加载新版CLI、Linux无线发送端、Windows接收端并导入布局。任务结束时CLI指示器显示退出码解释；未配套更新旧CLI时仅兼容phase明确带码的情况。本轮未重启任何程序或触发任务操作。
 
 0.7.8 Windows自动寻找Python：日常直接运行start_windows.ps1，优先使用项目.venv，再筛选本机其他64位Python 3.10+且依赖齐全的环境；首次部署或缺少依赖运行setup_windows.ps1即可自动选择基础解释器并安装到项目.venv。支持-Python指定路径，启动输出实际解释器；不依赖当前终端目录或PATH中的python默认命令。无需为本次脚本更新重启已有接收端；本轮未执行测试、安装、WSL或硬件操作。
+
+0.7.9 Windows exe：本机output/FSD_E22_Receiver.exe内置Python/PC依赖，仍需USB驱动与Foxglove。先等待在途操作结束并Ctrl+C退出原接收端，再双击exe；不可与脚本接收器同时占用COM/8765/8766。默认内置native配置，可--mode bridge覆盖。自定义时执行--export-config <目录>导出完整树，放exe旁config目录后自动读取config/radio_link/radio.yaml；也支持--config明确指定。不因更新exe覆盖现有外部配置。构建入口为显示radio_link/build_windows.ps1，打包会安装固定PyInstaller；本轮只构建、未启动exe或触发设备操作。

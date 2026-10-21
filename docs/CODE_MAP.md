@@ -120,3 +120,5 @@ Windows自动串口：显示radio_link/fsd_radio/ports.py:resolve_pc_port只枚�
 启动任务退出码指示：fsd_startup/manager.py:publish和control_api.py:status发布runtime_exit_code；显示cli_control.py:runtime_exit/EXIT_MEANINGS解释，LinuxControl转发心跳；Indicator!cliState包含退出码规则。exit_detail保留其他码，不推断具体硬件失败。
 
 Windows Python自动发现：radio_link/windows_python.ps1:Find-RadioPython共用于setup_windows.ps1和start_windows.ps1，查找项目/已激活虚拟环境、Python Launcher、PATH及注册表，跳过商店占位程序，支持-Python覆盖。前者管理项目环境安装，后者只选择依赖可用环境并从源码目录启动。
+
+Windows exe：radio_link/windows_receiver.py为PC入口/内置与外部配置选择/导出，复用fsd_radio.configuration.load_config和pc_receiver.run_pc；windows_receiver.spec收集Python依赖与配置资源，build_windows.ps1固定PyInstaller构建。configuration.py仅扩展冻结时渲染器资源根目录。成品本机output/FSD_E22_Receiver.exe，源码仓库不提交二进制或build/dist缓存。

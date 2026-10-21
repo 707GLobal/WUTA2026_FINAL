@@ -1,6 +1,6 @@
 # 当前源码与交付入口
 
-2026-10-21按无线0.7.8核对。当前参数以radio.yaml、实际模块设置和CLI选定文件为准；本页不把历史版本说明当作现场生效证据。
+2026-10-21按无线0.7.9核对。当前参数以radio.yaml、实际模块设置和CLI选定文件为准；本页不把历史版本说明当作现场生效证据。
 
 Windows安装与启动入口自动寻找64位Python 3.10+，优先项目虚拟环境，再查激活环境、Python Launcher、PATH与注册表；启动只接受依赖齐全的环境，缺少时提示运行setup_windows.ps1，不自动安装。支持-Python显式指定；本次未重启接收端或执行测试。
 
@@ -34,11 +34,12 @@ CLI及显示各是独立Git子模块，修改在子模块提交推送后，主�
 
 ## 本机交付文件
 
-工作目录D:\ebyte，主仓库WUTA2026_FINAL。output保留四个交付文件：
+工作目录D:\ebyte，主仓库WUTA2026_FINAL。output保留五个交付文件：
 
 - E22_Windows_Android_开发文档.md/pdf：原模块首版开发设计资料，包含旧方案与未来Android方向，不是当前FSD无线部署配置。
 - FSD_E22_CLI与传感器.json：当前布局导入副本；文件名保留兼容，内部选项卡按上表拆分。
 - FSD_E22_Foxglove_源码.zip：显示子模块源码包，不包含CLI子模块、宿主tools/docs、虚拟环境、缓存或现场日志；完整部署应拉取主仓库及全部子模块。
+- FSD_E22_Receiver.exe：Windows x64单文件接收程序，内置Python/PC依赖和默认配置资源，复用原PC逻辑；不包含Foxglove应用或USB驱动。先退出旧接收程序再双击，连接地址和布局沿用原配置。用--export-config导出完整配置目录，详情见无线README；代码更新需重新构建exe。本轮原生构建成功，未启动成品或执行测试。
 
 源码ZIP与fsd-visualization-code/SHA256SUMS从当前Git源码生成。tmp为本机辅助脚本和接收日志；archive/20261020_obsolete保留可恢复归档的旧布局、截图与45个临时文件。归档不参与当前交付，不删除用户日志和断点。
 

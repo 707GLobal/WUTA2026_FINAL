@@ -544,3 +544,5 @@ Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与�
 无线0.7.7：CLI原Manager发布已有runtime_exit_code，经ControlAPI心跳/状态、Linux无线适配器传给PC；CLI状态Indicator显示启动任务退出码说明。执行所有权和退出逻辑不变，管理器/无线进程码不混入该字段，运行/明确失败阶段及离线/忙碌状态优先。
 
 无线0.7.8：Windows安装和接收入口共用windows_python.ps1选择解释器，优先项目虚拟环境并筛选版本/位数；启动额外筛选已声明PC依赖。安装仍仅由setup_windows.ps1执行，不增加串口或业务所有者。
+
+无线0.7.9：windows_receiver.py为双击exe提供PC默认入口与配置导出，直接调用原load_config/run_pc；独有职责为冻结资源定位与命令行适配，不另建接收器。windows_receiver.spec/build_windows.ps1负责Windows单文件打包，内置原配置和纯显示渲染器；configuration.py冻结时从包资源定位渲染器，源码运行路径保持。外部配置优先但不自动覆盖，Linux、无线协议及CLI所有权不变。

@@ -2,6 +2,8 @@
 
 ## 1. 启动与连接
 
+Windows也可直接双击 `D:\ebyte\output\FSD_E22_Receiver.exe`，无需Python，仍需USB串口驱动。先用Ctrl+C退出旧接收程序，再启动exe；Foxglove连接和布局操作相同。exe命令行指定串口用 `--port COM3`，输入模式可用 `--mode bridge`。脚本方式保留如下。
+
 Linux端运行 `bash start_fsd_manager.sh --menu`，CLI会在独立终端联启无线（默认bridge），已有发送进程不重复启动。CLI和无线可独立退出，`--no-radio`关闭联启；无线仍可单独执行 `bash fsd-visualization-code/radio_link/start_linux.sh --mode bridge`。没有桌面时无线在后台运行，日志为 `.runtime/fsd_radio/linux.log`。Windows接收程序未运行时，在主仓库目录执行：
 
 ```powershell
