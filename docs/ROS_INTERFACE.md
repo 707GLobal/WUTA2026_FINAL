@@ -193,3 +193,24 @@ PC SDK新增Parameters能力：selection/module按需读取，yaml/<模块>/<完
 0.7.6 PC /radio/cli/control新增parameter_state与parameter_detail，供参数操作Indicator/详情显示，保存结果来自原config.set回复；不更改ROS或无线格式，原源时间保持。
 
 0.7.7 CLI心跳cli_control和cli.status新增可选runtime_exit_code（整数或null），来源为Manager的start_full_fsd子进程。PC /radio/cli/control增加exit_detail及exit_code_origin=start_full_fsd_child，display_state可为退出码:<值>或其他退出码；原phase/源时间保留。旧缺失字段可兼容，完整码显示需要CLI与发送端更新。ROS话题及执行请求格式不变。
+
+## 静态制动台架接口（2026-10-21）
+
+MissionState新增`bool brake_bench_mode`，由mission_manager发布；任务机、控制器及CAN的启动参数同名且默认false，根入口统一启用。控制器双向核对运行模式，不一致锁定中性。需重建消息及全部直接消费者并停止旧节点，旧install/overlay不可混用。消息其他字段及赛项/状态枚举保持。
+
+台架仍消费真实`/system/mission_mode_cmd`的acceleration与之后的`/system/start_command` GO，状态为IDLE→READY→EXPLORE→FINISH。description增加`brake_bench`与`sensor_checks_exempt`诊断，台架wait使用`acceleration_mode,go`；原始gnss_status/lidar_ready/localization_ready继续如实报告。DevicesInspection.ok在台架表示豁免传感器后的台架检查结论，不是传感器在线证明；急停态为false。
+
+原`/control/command`在台架的speed=0、angle=0，throttle_brake在5秒等待时为0、随后10秒为-0.5、结束持续0。CAN 0x210 Signal1分别编码32767(0x7FFF)/16383(0x3FFF)，Signal2始终32767；控制帧周期100ms。Command或台架活动MissionState接收年龄超过500ms、自检失败或状态不再活动时输出中性。正常模式协议不变。控制器急停订阅改为Reliable/Transient Local/depth1，与原急停发布端一致，重启可收到锁存急停。
+
+## 人工驾驶记录接口（2026-10-22）
+
+`--manual-record` 不改变消息定义或话题所有权。controller不启动，无本模式的 `/control/command` 发布者。CAN接口参数 `receive_only=true` 禁用全部发送（0x210/0x301、回调/定时器/退出），保留0x501/RES接收与既有ROS解析出口；ZLG桥 `--receive-only` 同时阻断SocketCAN→硬件。原VCU模式快照继续生成，但本次RunLog不按缓存分类。
+
+`mission_manager.manual_record_mode=true` 时忽略选档、GO、完成事件，不激活驾驶任务；保留真实设备自检、急停和标准定位消费，正式圈数保持未激活状态。MissionState.description增加 `manual_record=0|1`；人工记录正常时 `wait=manual_record`，故障时仍为急停诊断。此状态表示采集用途，不能作为自动驾驶就绪或发车许可。原 path_generator 收到有效定位即写实际轨迹；无控制指令时原cmd_*及cmd时间列为nan，无活动任务则规划文件可仅有表头。无新增ROS发布者或原始传感器录制话题。
+
+### 台架制动电机前置CAN接口（2026-10-22）
+
+> 2026-10-23当前状态：按用户要求，parseResFrame中调用prepareBrakeBench的入口已暂时注释，以下0x603前置流程仅作历史记录，当前不会执行。GO直接进入原任务机，台架仍按原控制器参数等待5秒、以50%制动10秒、释放中性；0x210和0x301保持，FSD不再额外发送0x603。
+
+
+只在brake_bench_mode=true时，can_interface收到0x1E4首字节0x13的新变化沿，且权威任务状态为新鲜的acceleration/READY、台架自检ok，才向标准ID0x603写入6帧，DLC8，依次为 `2B 71 60 00 18 FC FF FF` 与 `2B 40 60 00 1F 00 00 00` 交替三组。六次SocketCAN写入成功后才发布原/system/start_command；无新ROS话题或消息字段。原任务机决定EXPLORE，原controller随后执行5秒等待和10秒制动。任一写入失败停止序列、不发布GO、发布原/system/emergency=true；无自动重试、无SDO应答确认。正常模式和receive_only不发送这些前置帧。

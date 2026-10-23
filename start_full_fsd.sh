@@ -38,7 +38,9 @@ SUPERVISOR_FILE="$RUNTIME_DIR/supervisor.pid"
 
 ACTION=start
 BUILD=auto
+MANUAL_RECORD=0
 SENSOR_ONLY=0
+BRAKE_BENCH=0
 RVIZ=1
 REUSE_INS=0
 CHILD_PIDS=()
@@ -128,10 +130,14 @@ trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 usage() {
     cat <<'EOF'
 Usage: ./start_full_fsd.sh [--check|--build-only|--status|--stop]
-       [--build|--skip-build] [--sensor-only] [--reuse-ins] [--rviz|--no-rviz] [--image-view]
+       [--build|--skip-build] [--sensor-only|--brake-bench|--manual-record] [--reuse-ins] [--rviz|--no-rviz] [--image-view]
        [--ins-port=/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_BKEDc143M08-if00-port0] [--model=FILE] [--calibration=FILE]
        [--base-to-zed=FILE] [--controller-config=FILE] [--can-config=FILE] [--print-config]
 
+--manual-record keeps normal sensor/algorithm logs and driven CSV for human driving;
+CAN is receive-only, no controller or control/heartbeat transmission. No GO required.
+--brake-bench runs only CAN/controller/mission manager, requires real acceleration selection + GO,
+and releases to neutral after the configured static brake sequence. RViz is disabled.
 Default start runs all hardware and FSD runtime nodes. --sensor-only starts
 the camera, M1, CAN bridge, INS bridge and perception without vehicle control.
 RViz opens by default using fsd-visualization-code and its bundled display
@@ -152,7 +158,9 @@ for arg in "$@"; do
         --stop) ACTION=stop ;;
         --build) BUILD=yes ;;
         --skip-build) BUILD=no ;;
+        --manual-record) MANUAL_RECORD=1 ;;
         --sensor-only) SENSOR_ONLY=1 ;;
+        --brake-bench) BRAKE_BENCH=1 ;;
         --reuse-can) echo '[提示] --reuse-can 已停用；每次启动都会通过 sudo 重连 CAN 盒。' ;;
         --reuse-ins) REUSE_INS=1 ;;
         --rviz) RVIZ=1 ;;
@@ -170,6 +178,15 @@ for arg in "$@"; do
         *) echo "Unknown option: $arg" >&2; usage >&2; exit 2 ;;
     esac
 done
+
+if [[ "$MANUAL_RECORD" == 1 && ( "$SENSOR_ONLY" == 1 || "$BRAKE_BENCH" == 1 ) ]]; then
+    echo "--manual-record 与 --sensor-only/--brake-bench 互斥" >&2; exit 2
+fi
+
+if [[ "$BRAKE_BENCH" == 1 ]]; then
+    [[ "$SENSOR_ONLY" == 0 ]] || { echo '--brake-bench 与 --sensor-only 互斥' >&2; exit 2; }
+    RVIZ=0
+fi
 
 # A single output owner creates the context before checks/builds can fail.
 if [[ "$ACTION" != status && "$ACTION" != stop && "$ACTION" != print_config ]]; then
@@ -190,8 +207,10 @@ fi
 
 load_module_settings() {
     [[ -z "${VEHICLE_CALIBRATION:-}" ]] || echo "[提示] VEHICLE_CALIBRATION 已停用，参数读取各模块 config。" >&2
+    local profile_args=()
+    [[ "$BRAKE_BENCH" == 0 ]] || profile_args=(--brake-bench)
     MODULE_JSON="$(PYTHONNOUSERSITE=1 /usr/bin/python3 "$ROOT/tools/check_fsd_module_configs.py" \
-        --controller "$CONTROLLER_CONFIG" --can "$CAN_CONFIG" --model "$MODEL" --can-device "$CAN_IFACE")"
+        --controller "$CONTROLLER_CONFIG" --can "$CAN_CONFIG" --model "$MODEL" --can-device "$CAN_IFACE" "${profile_args[@]}")"
     mapfile -t MODULE_INFO < <(/usr/bin/python3 -c 'import json,sys; d=json.loads(sys.argv[1])["deployment"]; print("\n".join(str(d[k]) for k in ["model_path","can_device","lidar_topic","image_topic","fusion_topic","ins_topic"]))' "$MODULE_JSON")
     [[ "${#MODULE_INFO[@]}" == 6 ]] || fail '模块配置解析失败'
     MODEL="${MODULE_INFO[0]}"; CAN_IFACE="${MODULE_INFO[1]}"
@@ -288,54 +307,68 @@ PY
 }
 
 check_prerequisites() {
+    if [[ "$MANUAL_RECORD" == 1 ]]; then
+        /usr/bin/python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from checks import manual_record_occupancy; print(manual_record_occupancy({"manual-record": True}))' "$ROOT/fsd_startup" || fail "人工驾驶记录存在冲突进程"
+    fi
     require_file /opt/ros/humble/setup.bash
-    require_file "$ZED_SETUP"
-    require_file "$RSLIDAR_SETUP"
-    require_file "$MODEL"
-    require_file "$CALIBRATION"
     require_file "$CONTROLLER_CONFIG"
     require_file "$CAN_CONFIG"
-    require_file "$FSD_WS/src/perception/detection_fusion/launch/fusion_modules_hardware.launch.py"
-    require_file "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh"
     require_file "$ROOT/zlgcan_bridge/start_zlg_bridge.sh"
     require_file "$ROOT/tools/run_privileged_group.py"
-    if [[ "$RVIZ" == 1 ]]; then
-        require_file "$VIS_WS/start.sh"
-        require_file "$VIS_WS/src/fsd_visualization/config/fsd.rviz"
-        require_file "$VIS_WS/src/fsd_visualization/config/topics.yaml"
-        [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]] || fail '同屏可视化需要图形桌面；无桌面运行请加 --no-rviz'
+    if [[ "$BRAKE_BENCH" == 0 ]]; then
+        require_file "$ZED_SETUP"
+        require_file "$RSLIDAR_SETUP"
+        require_file "$MODEL"
+        require_file "$CALIBRATION"
+        require_file "$CONTROLLER_CONFIG"
+        require_file "$CAN_CONFIG"
+        require_file "$FSD_WS/src/perception/detection_fusion/launch/fusion_modules_hardware.launch.py"
+        require_file "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh"
+        require_file "$ROOT/zlgcan_bridge/start_zlg_bridge.sh"
+        require_file "$ROOT/tools/run_privileged_group.py"
+        if [[ "$RVIZ" == 1 ]]; then
+            require_file "$VIS_WS/start.sh"
+            require_file "$VIS_WS/src/fsd_visualization/config/fsd.rviz"
+            require_file "$VIS_WS/src/fsd_visualization/config/topics.yaml"
+            [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]] || fail '同屏可视化需要图形桌面；无桌面运行请加 --no-rviz'
+        fi
+        report_ok 'ROS、硬件驱动、模型与感知部署文件齐全'
+        [[ -d "$HARDWARE_DEPS" ]] || { fail "缺少 Python 硬件依赖目录：$HARDWARE_DEPS"; }
+        [[ -r "$INS_PORT" && -w "$INS_PORT" ]] || {
+            echo "[失败] 华测串口不存在或缺少读写权限：$INS_PORT" >&2
+            echo "See humble-chcnav-cgi_ros2pkg/README.md: sudo chmod 666 $INS_PORT (temporary), or join dialout and log in again." >&2
+            exit 1;
+        }
+        report_ok "华测串口可读写：$INS_PORT"
+        if [[ "$REUSE_INS" == 0 ]]; then
+            /usr/bin/python3 "$CHC_WS/src/chcnav/scripts/check_serial_port.py" "$INS_PORT" || \
+                fail '华测串口不可独占，尚未启动任何硬件进程'
+        fi
+        [[ "$(cat "/sys/class/net/$LIDAR_IFACE/carrier" 2>/dev/null || true)" == 1 ]] || {
+            fail "M1 网口未连接：$LIDAR_IFACE";
+        }
+        ip -4 -o addr show dev "$LIDAR_IFACE" | grep -Fq " $LIDAR_IP " || {
+            fail "M1 网口 $LIDAR_IFACE 未配置地址 $LIDAR_IP";
+        }
+        report_ok "M1 网口连接与地址检查通过：$LIDAR_IFACE / $LIDAR_IP"
+    else
+        report_ok '制动台架：仅检查ROS/CAN部署；豁免相机、雷达、惯导和定位'
     fi
-    report_ok 'ROS、硬件驱动、模型与感知部署文件齐全'
-    [[ -d "$HARDWARE_DEPS" ]] || { fail "缺少 Python 硬件依赖目录：$HARDWARE_DEPS"; }
-    [[ -r "$INS_PORT" && -w "$INS_PORT" ]] || {
-        echo "[失败] 华测串口不存在或缺少读写权限：$INS_PORT" >&2
-        echo "See humble-chcnav-cgi_ros2pkg/README.md: sudo chmod 666 $INS_PORT (temporary), or join dialout and log in again." >&2
-        exit 1;
-    }
-    report_ok "华测串口可读写：$INS_PORT"
-    if [[ "$REUSE_INS" == 0 ]]; then
-        /usr/bin/python3 "$CHC_WS/src/chcnav/scripts/check_serial_port.py" "$INS_PORT" || \
-            fail '华测串口不可独占，尚未启动任何硬件进程'
-    fi
-    [[ "$(cat "/sys/class/net/$LIDAR_IFACE/carrier" 2>/dev/null || true)" == 1 ]] || {
-        fail "M1 网口未连接：$LIDAR_IFACE";
-    }
-    ip -4 -o addr show dev "$LIDAR_IFACE" | grep -Fq " $LIDAR_IP " || {
-        fail "M1 网口 $LIDAR_IFACE 未配置地址 $LIDAR_IP";
-    }
-    report_ok "M1 网口连接与地址检查通过：$LIDAR_IFACE / $LIDAR_IP"
     command -v lsusb >/dev/null || fail '缺少 lsusb 命令，无法检查 ZLG USB 设备'
     lsusb -d 0471:126a | grep -q . || {
         fail '未检测到 ZLG USBCAN-4E-U USB 设备 (0471:126a)';
     }
     report_ok 'ZLG USB 设备已检测到'
     local bridge_pid
+    if [[ "$MANUAL_RECORD" == 1 ]] && pgrep -x zlg_can_bridge >/dev/null; then
+        fail "人工驾驶记录禁止复用外部CAN桥；请先停止已有桥，避免双向发送"
+    fi
     if bridge_pid="$(can_bridge_pid)"; then
         report_ok "检测到旧 ZLG CAN 桥：$CAN_IFACE（PID=$bridge_pid）；启动时验证接口并复用，退出 FSD 时保留该桥"
     elif pgrep -x zlg_can_bridge >/dev/null; then
         fail "已有 ZLG CAN 桥使用其他接口或存在重复实例，请检查桥参数与 CAN_IFACE=$CAN_IFACE"
     fi
-    if [[ "$SENSOR_ONLY" == 0 ]]; then
+    if [[ "$SENSOR_ONLY" == 0 && "$BRAKE_BENCH" == 0 ]]; then
         require_file "$BASE_TO_ZED"
         [[ -f "$ROOT/tools/monitor_mission.py" ]] || echo "[警告] 缺少只读任务监控；车辆模块仍可启动"
     fi
@@ -374,15 +407,19 @@ PY
 load_module_settings
 if [[ -n "${RUN_DIR:-}" ]]; then
     printf '%s\n' "$MODULE_JSON" > "$RUN_DIR/configs/module_config_manifest.json"
+    SNAPSHOT_ARGS=()
+    if [[ "$BRAKE_BENCH" == 0 ]]; then
+        SNAPSHOT_ARGS=("camera_lidar=$CALIBRATION" "base_to_zed=$BASE_TO_ZED"
+            "chcnav_bridge=$CHC_WS/src/chcnav/config/chcnav_fsd_bridge.yaml")
+    fi
     /usr/bin/python3 "$ROOT/tools/snapshot_run_configs.py" "$RUN_DIR/configs/module_config_manifest.json" "$RUN_DIR/configs" \
-        "camera_lidar=$CALIBRATION" "base_to_zed=$BASE_TO_ZED" \
-        "chcnav_bridge=$CHC_WS/src/chcnav/config/chcnav_fsd_bridge.yaml" \
+        "${SNAPSHOT_ARGS[@]}" \
         || echo '[警告] 配置快照未完整保存，源配置检查仍按原流程执行' >&2
 fi
 
 if [[ "$ACTION" == check ]]; then
     check_prerequisites
-    [[ "$SENSOR_ONLY" == 1 ]] || read_base_to_zed
+    [[ "$SENSOR_ONLY" == 1 || "$BRAKE_BENCH" == 1 ]] || read_base_to_zed
     report_ok '启动前检查全部完成'
     exit 0
 fi
@@ -391,6 +428,17 @@ build_workspaces() {
     set +u
     source /opt/ros/humble/setup.bash
     set -u
+    if [[ "$BRAKE_BENCH" == 1 ]]; then
+        (cd "$CHC_WS" && colcon build --packages-select msg_interfaces --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3)
+        set +u
+        source "$CHC_WS/install/setup.bash"
+        set -u
+        (cd "$FSD_WS" && colcon build --base-paths src --symlink-install --parallel-workers 2 \
+            --packages-up-to controller mission_manager can_interface \
+            --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3)
+        report_ok 'FSD 算法包构建完成'
+        return
+    fi
     (cd "$CHC_WS" && colcon build --packages-select msg_interfaces chcnav \
         --cmake-clean-cache --cmake-args \
         -DPython3_EXECUTABLE=/usr/bin/python3 -DPYTHON_EXECUTABLE=/usr/bin/python3 \
@@ -416,7 +464,7 @@ if [[ "$BUILD" == yes || ( "$BUILD" == auto &&
     build_workspaces
 fi
 if [[ "$ACTION" == build_only ]]; then
-    build_visualization
+    [[ "$BRAKE_BENCH" == 1 ]] || build_visualization
     (cd "$ROOT/zlgcan_bridge" && make -j2)
     report_ok '华测、FSD、ZLG CAN 桥构建全部完成'
     exit 0
@@ -430,7 +478,7 @@ fi
 require_file "$CHC_WS/install/setup.bash"
 require_file "$FSD_WS/install/setup.bash"
 check_prerequisites
-[[ "$SENSOR_ONLY" == 1 ]] || read_base_to_zed
+[[ "$SENSOR_ONLY" == 1 || "$BRAKE_BENCH" == 1 ]] || read_base_to_zed
 if supervisor_alive; then
     echo '[失败] 已有全栈启动脚本正在运行。' >&2
     exit 1
@@ -439,8 +487,10 @@ fi
 # Source every overlay once, then all child processes inherit one ROS domain.
 set +u
 source /opt/ros/humble/setup.bash
-source "$ZED_SETUP"
-source "$RSLIDAR_SETUP"
+if [[ "$BRAKE_BENCH" == 0 ]]; then
+    source "$ZED_SETUP"
+    source "$RSLIDAR_SETUP"
+fi
 source "$CHC_WS/install/setup.bash"
 source "$FSD_WS/install/setup.bash"
 set -u
@@ -456,6 +506,15 @@ printf '%s %s\n' "$$" "$(proc_start_time "$$")" > "$SUPERVISOR_FILE"
 cleanup() {
     local index pid
     trap - EXIT INT TERM
+    if [[ "$BRAKE_BENCH" == 1 ]]; then
+        # 保持CAN存活，让控制器停止后的500ms命令看门狗发出中性帧。
+        for index in "${!CHILD_PIDS[@]}"; do
+            if [[ "${CHILD_NAMES[index]}" == controller ]]; then
+                kill -INT -- "-${CHILD_PIDS[index]}" 2>/dev/null || true
+            fi
+        done
+        sleep 0.7
+    fi
     # Observers share shutdown only; their failures never gate vehicle runtime.
     for pid in "${OBSERVER_PIDS[@]}"; do
         CHILD_PIDS+=("$pid")
@@ -602,7 +661,13 @@ fi
 
 reconnect_can_bridge() {
     local bridge_pid expected attempt
+    if [[ "$MANUAL_RECORD" == 1 ]] && pgrep -x zlg_can_bridge >/dev/null; then
+        fail "人工驾驶记录禁止复用外部CAN桥；请先停止已有桥，避免双向发送"
+    fi
     if bridge_pid="$(can_bridge_pid)"; then
+        if tr "\0" "\n" < "/proc/$bridge_pid/cmdline" | grep -Fxq -- --receive-only; then
+            fail "正常/台架模式不能复用只收CAN桥；请先停止该桥" zlg_can
+        fi
         expected="$(proc_start_time "$bridge_pid")"
         [[ -n "$expected" ]] || fail '已有 CAN 桥在检查时退出，未打开第二个设备实例' zlg_can
         check_existing_can || fail "已有 CAN 桥的 $CAN_IFACE 接口未就绪，保留外部进程" zlg_can
@@ -618,8 +683,10 @@ reconnect_can_bridge() {
     if pgrep -x zlg_can_bridge >/dev/null; then
         fail '仍有 ZLG CAN 桥进程，无法独占设备并重连'
     fi
+    local bridge_args=()
+    [[ "$MANUAL_RECORD" == 0 ]] || bridge_args=(--receive-only --log-frames=on)
     start_group zlg_can bash "$ROOT/zlgcan_bridge/start_zlg_bridge.sh" \
-        "--iface=$CAN_IFACE" "--log-dir=$ZLG_LOG_DIR"
+        "--iface=$CAN_IFACE" "--log-dir=$ZLG_LOG_DIR" "${bridge_args[@]}"
     for ((attempt=0; attempt<300; attempt++)); do
         check_children
         if grep -Fq '[main] 就绪:' "$ZLG_LOG_DIR/bridge.log"; then
@@ -633,62 +700,70 @@ reconnect_can_bridge() {
 }
 
 reconnect_can_bridge
-if [[ "$REUSE_INS" == 1 ]]; then
-    report_ok '复用外部华测链路；将检查惯导输出话题'
-else
-    if [[ "${FSD_INS_DIAGNOSTICS:-1}" == 1 ]]; then
-        export CHCNAV_DIAGNOSTIC_DIR="$CHCNAV_LOG_DIR/diagnostics"
+if [[ "$BRAKE_BENCH" == 0 ]]; then
+    if [[ "$REUSE_INS" == 1 ]]; then
+        report_ok '复用外部华测链路；将检查惯导输出话题'
+    else
+        if [[ "${FSD_INS_DIAGNOSTICS:-1}" == 1 ]]; then
+            export CHCNAV_DIAGNOSTIC_DIR="$CHCNAV_LOG_DIR/diagnostics"
+        fi
+        start_group chcnav bash "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh" \
+            --no-build "--port=$INS_PORT" "--log-dir=$CHCNAV_LOG_DIR"
     fi
-    start_group chcnav bash "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh" \
-        --no-build "--port=$INS_PORT" "--log-dir=$CHCNAV_LOG_DIR"
-fi
 
-if [[ "$SENSOR_ONLY" == 0 ]]; then
-    start_group map_to_odom ros2 run tf2_ros static_transform_publisher \
-        --x 0 --y 0 --z 0 --qx 0 --qy 0 --qz 0 --qw 1 \
-        --frame-id map --child-frame-id odom
-    start_group base_to_zed ros2 run tf2_ros static_transform_publisher \
-        --x "${BASE_TF[0]}" --y "${BASE_TF[1]}" --z "${BASE_TF[2]}" \
-        --qx "${BASE_TF[3]}" --qy "${BASE_TF[4]}" --qz "${BASE_TF[5]}" --qw "${BASE_TF[6]}" \
-        --frame-id base_link --child-frame-id zed_camera_link
-fi
+    if [[ "$SENSOR_ONLY" == 0 ]]; then
+        start_group map_to_odom ros2 run tf2_ros static_transform_publisher \
+            --x 0 --y 0 --z 0 --qx 0 --qy 0 --qz 0 --qw 1 \
+            --frame-id map --child-frame-id odom
+        start_group base_to_zed ros2 run tf2_ros static_transform_publisher \
+            --x "${BASE_TF[0]}" --y "${BASE_TF[1]}" --z "${BASE_TF[2]}" \
+            --qx "${BASE_TF[3]}" --qy "${BASE_TF[4]}" --qz "${BASE_TF[5]}" --qw "${BASE_TF[6]}" \
+            --frame-id base_link --child-frame-id zed_camera_link
+    fi
 
-PERCEPTION_ARGS=(config_root:="$FSD_WS/src" model_path:="$MODEL" calibration_path:="$CALIBRATION"
-    zed_publish_tf:=false zed_publish_map_tf:=false)
-start_group perception_drivers ros2 launch detection_fusion fusion_modules_hardware.launch.py \
-    "${PERCEPTION_ARGS[@]}" start_drivers:=true start_algorithms:=false
-start_group perception ros2 launch detection_fusion fusion_modules_hardware.launch.py \
-    "${PERCEPTION_ARGS[@]}" start_drivers:=false start_algorithms:=true
-if [[ "${FSD_PARALLEL_CHECKS:-0}" == 1 ]]; then
-    wait_independent_sensor_topics
-    wait_topic "$FUSION_TOPIC" 20 '检测融合输出' perception
-else
-    wait_topic "$LIDAR_TOPIC" 20 'M1 激光雷达数据' perception_drivers
-    wait_topic "$IMAGE_TOPIC" 20 'ZED 相机图像' perception_drivers
-    wait_topic "$FUSION_TOPIC" 20 '检测融合输出' perception
-    if [[ "$SENSOR_ONLY" == 0 || "$REUSE_INS" == 1 ]]; then
-        wait_topic "$INS_TOPIC" 20 '华测惯导输出' chcnav
+    PERCEPTION_ARGS=(config_root:="$FSD_WS/src" model_path:="$MODEL" calibration_path:="$CALIBRATION"
+        zed_publish_tf:=false zed_publish_map_tf:=false)
+    start_group perception_drivers ros2 launch detection_fusion fusion_modules_hardware.launch.py \
+        "${PERCEPTION_ARGS[@]}" start_drivers:=true start_algorithms:=false
+    start_group perception ros2 launch detection_fusion fusion_modules_hardware.launch.py \
+        "${PERCEPTION_ARGS[@]}" start_drivers:=false start_algorithms:=true
+    if [[ "${FSD_PARALLEL_CHECKS:-0}" == 1 ]]; then
+        wait_independent_sensor_topics
+        wait_topic "$FUSION_TOPIC" 20 '检测融合输出' perception
+    else
+        wait_topic "$LIDAR_TOPIC" 20 'M1 激光雷达数据' perception_drivers
+        wait_topic "$IMAGE_TOPIC" 20 'ZED 相机图像' perception_drivers
+        wait_topic "$FUSION_TOPIC" 20 '检测融合输出' perception
+        if [[ "$SENSOR_ONLY" == 0 || "$REUSE_INS" == 1 ]]; then
+            wait_topic "$INS_TOPIC" 20 '华测惯导输出' chcnav
+        fi
+    fi
+
+    if [[ "$SENSOR_ONLY" == 0 ]]; then
+        start_group ekf ros2 run robot_localization ekf_node --ros-args \
+            -r __node:=ekf_node \
+            --params-file "$FSD_WS/src/localization/localization_manager/config/ekf.yaml" \
+            -p "debug_out_file:=$FSD_MODULES_DIR/localization/ekf_debug.txt"
+        start_group localization_manager ros2 run localization_manager localization_manager_node
+        wait_topic /localization/pose 20 '定位输出' ekf localization_manager chcnav
+        start_group cone_map_builder ros2 run cone_map_builder cone_map_builder_node --ros-args \
+            --params-file "$FSD_WS/src/mapping/cone_map_builder/config/cone_map_builder.yaml" \
+            -p "map_save_path:=$RUN_DIR/artifacts/cone_map.yaml" \
+            -r /perception/lidar/cones:=/perception/fused/cones
+        start_group boundary_detector ros2 run boundary_detector boundary_detector_node --ros-args \
+            --params-file "$FSD_WS/src/planning/boundary_detector/config/boundary_detector.yaml"
+        start_group path_generator ros2 run path_generator path_generator_node --ros-args \
+            --params-file "$FSD_WS/src/planning/path_generator/config/path_generator.yaml" \
+            -p "record.run_dir:=$RUN_DIR"
     fi
 fi
 
+BENCH_ARGS=(-p "brake_bench_mode:=$([[ "$BRAKE_BENCH" == 1 ]] && echo true || echo false)")
 if [[ "$SENSOR_ONLY" == 0 ]]; then
-    start_group ekf ros2 run robot_localization ekf_node --ros-args \
-        -r __node:=ekf_node \
-        --params-file "$FSD_WS/src/localization/localization_manager/config/ekf.yaml" \
-        -p "debug_out_file:=$FSD_MODULES_DIR/localization/ekf_debug.txt"
-    start_group localization_manager ros2 run localization_manager localization_manager_node
-    wait_topic /localization/pose 20 '定位输出' ekf localization_manager chcnav
-    start_group cone_map_builder ros2 run cone_map_builder cone_map_builder_node --ros-args \
-        --params-file "$FSD_WS/src/mapping/cone_map_builder/config/cone_map_builder.yaml" \
-        -p "map_save_path:=$RUN_DIR/artifacts/cone_map.yaml" \
-        -r /perception/lidar/cones:=/perception/fused/cones
-    start_group boundary_detector ros2 run boundary_detector boundary_detector_node --ros-args \
-        --params-file "$FSD_WS/src/planning/boundary_detector/config/boundary_detector.yaml"
-    start_group path_generator ros2 run path_generator path_generator_node --ros-args \
-        --params-file "$FSD_WS/src/planning/path_generator/config/path_generator.yaml" \
-        -p "record.run_dir:=$RUN_DIR"
-    start_group controller ros2 run controller controller_node --ros-args \
-        --params-file "$CONTROLLER_CONFIG"
+    if [[ "$MANUAL_RECORD" == 0 ]]; then
+        start_group controller ros2 run controller controller_node --ros-args \
+            --params-file "$CONTROLLER_CONFIG" "${BENCH_ARGS[@]}"
+    fi
     if [[ -f "$ROOT/tools/monitor_mission.py" ]]; then
         setsid /usr/bin/python3 -u "$ROOT/tools/monitor_mission.py" --run-dir "$RUN_DIR" &
         OBSERVER_PIDS+=("$!")
@@ -697,9 +772,11 @@ if [[ "$SENSOR_ONLY" == 0 ]]; then
     CAN_ARGS=()
     [[ -z "$CAN_IFACE_EXPLICIT" ]] || CAN_ARGS=(-p "can.device:=$CAN_IFACE")
     start_group can_interface ros2 run can_interface can_interface_node --ros-args \
-        --params-file "$CAN_CONFIG" "${CAN_ARGS[@]}"
+        --params-file "$CAN_CONFIG" "${CAN_ARGS[@]}" "${BENCH_ARGS[@]}" \
+        -p "receive_only:=$([[ "$MANUAL_RECORD" == 1 ]] && echo true || echo false)"
     start_group mission_manager ros2 run mission_manager mission_manager_node --ros-args \
-        --params-file "$FSD_WS/src/system/mission_manager/config/mission_manager.yaml"
+        --params-file "$FSD_WS/src/system/mission_manager/config/mission_manager.yaml" "${BENCH_ARGS[@]}" \
+        -p "manual_record_mode:=$([[ "$MANUAL_RECORD" == 1 ]] && echo true || echo false)"
     wait_topic /system/mission_state 15 '任务状态广播' mission_manager
 fi
 
@@ -727,7 +804,9 @@ PY
 fi
 
 report_ok "全栈启动检查完成，已启动 ${#CHILD_PIDS[@]} 个进程组。日志：$RUN_DIR"
-if [[ "$SENSOR_ONLY" == 0 ]]; then
+if [[ "$MANUAL_RECORD" == 1 ]]; then
+    echo '[提示] 人工驾驶记录：CAN只收不发；不运行控制器；定位到达后记录轨迹，无需GO。'
+elif [[ "$SENSOR_ONLY" == 0 ]]; then
     echo '[提示] 任务仍需满足就绪条件、由 VCU 选择模式，再按 RES GO。'
 fi
 echo 'Press Ctrl-C to stop this stack.'

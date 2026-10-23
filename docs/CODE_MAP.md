@@ -122,3 +122,32 @@ Windows自动串口：显示radio_link/fsd_radio/ports.py:resolve_pc_port只枚�
 Windows Python自动发现：radio_link/windows_python.ps1:Find-RadioPython共用于setup_windows.ps1和start_windows.ps1，查找项目/已激活虚拟环境、Python Launcher、PATH及注册表，跳过商店占位程序，支持-Python覆盖。前者管理项目环境安装，后者只选择依赖可用环境并从源码目录启动。
 
 Windows exe：radio_link/windows_receiver.py为PC入口/内置与外部配置选择/导出，复用fsd_radio.configuration.load_config和pc_receiver.run_pc；windows_receiver.spec收集Python依赖与配置资源，build_windows.ps1固定PyInstaller构建。configuration.py仅扩展冻结时渲染器资源根目录。成品本机output/FSD_E22_Receiver.exe，源码仓库不提交二进制或build/dist缓存。
+
+## 静态制动台架（2026-10-21）
+
+| 功能 | 现有实现内的扩展入口 |
+| --- | --- |
+| CLI M键循环选择/停止后恢复 | `fsd_startup/terminal_ui.py`、`manager.py:cycle_run_profile`；运行期间不可切换 |
+| 台架依赖检查与配置编辑 | `fsd_startup/{checks,runtime_checks,config_store}.py`、`tools/check_fsd_module_configs.py:brake_bench_manifest` |
+| 根启动与停机顺序 | `start_full_fsd.sh --brake-bench`，复用原日志和进程生命周期 |
+| 5秒延时/10秒50%制动/释放 | `control/controller/src/controller_node.cpp:runBrakeBench`、`config/controller.yaml:acceleration.bench_brake`（FSD源码相对路径） |
+| 选档/GO与传感器豁免 | `system/mission_manager/src/mission_manager.cpp:advanceWhenReady/selfCheckTick`；`common/wuta_msgs/msg/MissionState.msg:brake_bench_mode` |
+| 台架命令超时与中性帧 | `system/can_interface/src/can_interface.cpp:sendControlFrame`及析构；真实CAN协议出口保持 |
+| 离线验证 | `fsd_startup/test_brake_bench.py`、`tools/test_brake_bench_ros.py`、FSD `system/can_interface/test/test_brake_bench_can.cpp` |
+
+## 人工驾驶记录（2026-10-22）
+
+| 功能 | 原有实现内的扩展入口 |
+| --- | --- |
+| CLI M键三模式循环、互斥/停止锁、模式显示 | `fsd_startup/manager.py:cycle_run_profile/options_from`、`terminal_ui.py` |
+| 正常算法链与只收CAN启动 | `start_full_fsd.sh --manual-record`；预检查 `fsd_startup/checks.py:manual_record_occupancy/can_occupancy`，运行检查 `runtime_checks.py` |
+| 人工记录目录与原日志生命周期 | `fsd_startup/log_context.py:RunLog.create`、`manager.py:start`、`tools/run_logged.py`、`tools/monitor_mission.py` |
+| 只收桥与设备发送保护 | `zlgcan_bridge/start_zlg_bridge.sh --receive-only`、`main.c`、`zlg_side.c`；VCU日志仍由 `can_log.c` 写入 |
+| CAN接收及所有发送禁用 | FSD `system/can_interface/src/can_interface.cpp:receive_only`（FSD路径相对ros2_ws/src） |
+| 自动任务不激活、诊断保留 | FSD `system/mission_manager/src/mission_manager.cpp:manual_record_mode`、`tools/mission_diagnostics.py` |
+| 原实际轨迹记录（未另建实现） | FSD `planning/path_generator/src/path_generator_node.cpp:onPose/appendDrivenRecord` |
+| 无硬件回归 | `fsd_startup/test_manual_record.py`、`zlgcan_bridge/tests/test_receive_only.py`、FSD `system/can_interface/test/test_receive_only_can.cpp`、`tools/test_manual_record_ros.py` |
+
+2026-10-22台架前置0x603：FSD `system/can_interface/src/can_interface.cpp:prepareBrakeBench/parseResFrame`负责A/B交替三组及GO转发顺序；`test/test_brake_bench_prepare.cpp`为内存设备离线验证，覆盖6帧顺序/字节、GO后置、重复GO、未就绪/自检缺失、写失败急停和正常模式无额外发送。
+
+2026-10-23当前状态：`can_interface.cpp:parseResFrame`中`prepareBrakeBench()`调用已临时注释；函数和历史测试源码保留，`brake_bench_prepare` CTest标记DISABLED。当前台架只走原GO→任务机→controller定时→0x210控制链，原0x301心跳保持。

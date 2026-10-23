@@ -6,6 +6,8 @@ STATES = {
     3: 'EXPLORE 任务执行中', 4: 'MAPPING_DONE 建图完成',
     5: 'RACE 比赛中', 6: 'FINISH 任务完成', 7: 'EMERGENCY 急停',
 }
+WAIT_LABELS['manual_record'] = '人工驾驶记录中（无需GO，无控制输出）'
+WAIT_LABELS['acceleration_mode'] = '真实直线加速档位选择（制动台架）'
 WAIT_LABELS['gnss'] = 'GNSS状态4（RTK固定解定位定向）'
 MODES = {0: 'trackdrive 高速循迹', 1: 'skidpad 八字绕环',
          2: 'acceleration 直线加速', 3: 'inspection 车检', 4: 'ebs_test EBS测试'}
@@ -29,6 +31,13 @@ def describe(state, mode, loc, description):
         lines['门控'] = '当前状态机未提供门控诊断；任务选择和 GO 状态未知'
         lines['任务模式'] = MODES.get(mode, str(mode)) + '（仅模式字段，不能确认已选择）'
         return lines
+    manual = fields.get('manual_record') == 1
+    if manual:
+        lines['运行方式'] = '人工驾驶记录：CAN只收不发，无控制器'
+        lines['阶段'] = '人工驾驶记录（自动任务未激活）'
+    bench = fields.get('brake_bench') == 1
+    if bench:
+        lines['运行方式'] = '制动台架：不驱动、转向回正，传感器/定位门槛豁免'
     gnss_target = '状态4'
     selected = fields['mode_selected'] == 1
     lines['任务选择'] = MODES.get(mode, str(mode)) if selected else '尚未选择（默认模式不代表已选择）'
@@ -38,11 +47,19 @@ def describe(state, mode, loc, description):
         from gnss_status import gnss_description
         code = fields['gnss_status']
         gate = ('不要求（车检）' if mode == 3 else '通过') if fields.get('gnss_ready') else '等待' + gnss_target
+        if manual:
+            gate = '不要求（人工驾驶记录）'
+        if bench:
+            gate = '不要求（制动台架）'
         lines['GNSS'] = f'{code}（{gnss_description(code)}），门控={gate}'
     count = fields['go_count']
     pending = fields['go_pending'] == 1
     lines['GO'] = (f"累计收到 {count} 次，当前{'有待处理GO' if pending else '无待处理GO（已消费或清除）'}"
                    if count else '尚未收到')
+    if manual:
+        lines['GO'] = '不要求（人工驾驶记录）'
+        lines['下一步'] = '持续记录，结束时通过CLI停止'
+        return lines
     if 'wait' in fields:
         reasons = fields['wait']
         lines['下一步'] = '等待：' + '、'.join(WAIT_LABELS.get(k, k) for k in reasons.split(',')) if reasons != 'none' else '当前无待满足门槛'

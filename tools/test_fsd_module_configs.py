@@ -78,7 +78,7 @@ def test_independent_throttle_and_brake_limits(tmp_path):
     config=manifest(controller=f)['parameters']['controller']
     assert config['acceleration']['throttle']['max_opening']==.2
     assert config['acceleration']['brake']['max_opening']==.8
-    assert config['trackdrive']['throttle']['max_opening']==1.0
+    assert config['trackdrive']['throttle']['max_opening']==base['trackdrive']['throttle']['max_opening']
 
 @pytest.mark.parametrize('opening',[-.1,1.1,float('nan'),float('inf')])
 def test_invalid_openings_rejected_before_launch(tmp_path,opening):

@@ -546,3 +546,19 @@ Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与�
 无线0.7.8：Windows安装和接收入口共用windows_python.ps1选择解释器，优先项目虚拟环境并筛选版本/位数；启动额外筛选已声明PC依赖。安装仍仅由setup_windows.ps1执行，不增加串口或业务所有者。
 
 无线0.7.9：windows_receiver.py为双击exe提供PC默认入口与配置导出，直接调用原load_config/run_pc；独有职责为冻结资源定位与命令行适配，不另建接收器。windows_receiver.spec/build_windows.ps1负责Windows单文件打包，内置原配置和纯显示渲染器；configuration.py冻结时从包资源定位渲染器，源码运行路径保持。外部配置优先但不自动覆盖，Linux、无线协议及CLI所有权不变。
+
+## 静态制动台架入口（2026-10-21）
+
+CLI `terminal_ui.py/manager.py`以M键循环选择本次运行的正常/制动台架/有人跑动记录配置，根`start_full_fsd.sh --brake-bench`沿原日志、监管及ZLG生命周期仅启动CAN、controller、mission_manager和只读监控；不另建启动器或驾驶发布者。controller的runBrakeBench使用单调时钟直接输出静态制动序列，经原Command/CAN出口执行；配置沿用controller.yaml。mission_manager仍唯一发布MissionState及DevicesInspection，台架豁免传感器/GNSS/定位但保留真实直线加速选档、GO及急停。MissionState新增brake_bench_mode供执行端核对，CAN台架分支包含500ms输入超时归中性和无正驱动/转向约束。正式距离制动、路径与赛项所有权不变；恢复流程与验证边界见[DEPLOYMENT](DEPLOYMENT.md)。
+
+## 人工驾驶记录模式（2026-10-22）
+
+CLI `M` 键循环切换正常→制动台架→有人跑动记录→正常，根入口参数为 `--manual-record`，与 sensor-only、制动台架互斥；只在停止并清理后切换。沿用正常传感器、感知、EKF、定位管理、建图、边界、规划、任务诊断及只读显示，不启动 controller。`mission_manager.manual_record_mode=true` 保持自动任务未激活（IDLE，真实自检故障/RES急停仍进入EMERGENCY），忽略赛项切换、GO和完成事件；不为采集伪造EXPLORE或正式圈次。实际行驶轨迹由原 path_generator 的 onPose/appendDrivenRecord 写入，不依赖GO；无自动任务时不生成有效规划路径。
+
+ZLG桥本次独占启动 `--receive-only --log-frames=on`，只保留硬件→SocketCAN转发、VCU逐帧日志和原模式快照；不开SocketCAN→硬件线程，设备发送函数另设只收保护。CAN接口 `receive_only=true` 保留接收解析/ROS输入事件，禁用控制帧、心跳帧及退出发送。CAN收发和权威数据所有权不迁移；已有外部桥/驾驶节点阻止人工记录启动，正常/台架启动也拒绝复用只收桥。只收指禁止应用CAN数据帧发送，硬件仍使用原正常工作模式，并非经过验证的电气静默监听模式。
+
+日志复用 RunLog 和现有写入者，目录 `wuta_logs/manual_record/<YYYYmmdd_HHMMSS>/`；保持正常日志格式、配置快照、华测数据/诊断、感知/定位/建图/规划输出、地图产物（原保存条件）和轨迹CSV。不新增原始点云/图像rosbag；无CAN发送或控制器来源的日志不伪造，轨迹命令字段保持nan。人工记录不以VCU档位或任务机默认trackdrive改写归档分类。
+
+2026-10-22：静态制动台架GO前置协议扩展在原`can_interface::parseResFrame/prepareBrakeBench`内，读取权威READY、自检并在GO转发前发送0x603两种固定8字节报文交替三组；六帧成功写入后仍由原任务机决定EXPLORE、原controller计时与制动，不新增任务状态机、Command生产者或启动入口。失败沿原急停事件退出。详见[ROS_INTERFACE](ROS_INTERFACE.md)及[DEPLOYMENT](DEPLOYMENT.md)。
+
+2026-10-23当前状态：台架0x603前置调用已临时注释，GO恢复直接转交原任务机；controller原5秒等待、10秒50%制动及中性释放仍经Command→0x210执行，原0x301心跳保持。prepareBrakeBench源码保留但不调用，无额外电机直发报文；正常FSD及人工记录职责不变。

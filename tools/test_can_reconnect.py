@@ -14,7 +14,7 @@ RECONNECT = 'reconnect_can_bridge() {' + RECONNECT + '\n}\n'
 
 class CanReconnectTests(unittest.TestCase):
     def run_reconnect(self, *, old=False, ready=True, stuck=False,
-                      kill_error=False, valid=True, foreign=False):
+                      kill_error=False, valid=True, foreign=False, manual=False):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             if old:
@@ -46,11 +46,23 @@ check_existing_can() { [[ "$VALID" == 1 ]]; }
             env = dict(os.environ,
                        READY=str(int(ready)), STUCK=str(int(stuck)),
                        KILL_ERROR=str(int(kill_error)), VALID=str(int(valid)),
-                       FOREIGN=str(int(foreign)))
+                       FOREIGN=str(int(foreign)), MANUAL_RECORD=str(int(manual)))
             result = subprocess.run(['bash', '-c', script], cwd=root, env=env,
                                     text=True, capture_output=True, timeout=5)
-            events = (root / 'events').read_text()
+            events = (root / 'events').read_text() if (root / 'events').exists() else result.stderr
             return result.returncode, events
+
+    def test_manual_record_starts_receive_only_with_frame_logging(self):
+        code, events = self.run_reconnect(manual=True)
+        self.assertEqual(code, 0, events)
+        self.assertIn('--receive-only --log-frames=on', events)
+
+    def test_manual_record_rejects_external_bridge_without_stopping_it(self):
+        code, events = self.run_reconnect(manual=True, old=True)
+        self.assertNotEqual(code, 0)
+        self.assertIn('禁止复用', events)
+        self.assertNotIn('SUDO', events)
+        self.assertNotIn('START', events)
 
     def test_external_bridge_reused_without_shutdown_or_second_open(self):
         code, events = self.run_reconnect(old=True)

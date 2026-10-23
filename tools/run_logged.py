@@ -16,7 +16,7 @@ import mode_cache
 def main():
     command = sys.argv[1:]
     mode = os.environ.get('FSD_RUN_MODE', 'hardware')
-    mode = 'sensor_only' if '--sensor-only' in command else mode
+    mode = 'manual_record' if '--manual-record' in command else 'brake_bench' if '--brake-bench' in command else 'sensor_only' if '--sensor-only' in command else mode
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--mission')
     parser.add_argument('--output')

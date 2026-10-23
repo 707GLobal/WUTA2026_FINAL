@@ -203,3 +203,46 @@ PC/Linux系统时间保持同步，CLI源心跳大于10秒或未来偏差超过5
 0.7.8 Windows自动寻找Python：日常直接运行start_windows.ps1，优先使用项目.venv，再筛选本机其他64位Python 3.10+且依赖齐全的环境；首次部署或缺少依赖运行setup_windows.ps1即可自动选择基础解释器并安装到项目.venv。支持-Python指定路径，启动输出实际解释器；不依赖当前终端目录或PATH中的python默认命令。无需为本次脚本更新重启已有接收端；本轮未执行测试、安装、WSL或硬件操作。
 
 0.7.9 Windows exe：本机output/FSD_E22_Receiver.exe内置Python/PC依赖，仍需USB驱动与Foxglove。先等待在途操作结束并Ctrl+C退出原接收端，再双击exe；不可与脚本接收器同时占用COM/8765/8766。默认内置native配置，可--mode bridge覆盖。自定义时执行--export-config <目录>导出完整树，放exe旁config目录后自动读取config/radio_link/radio.yaml；也支持--config明确指定。不因更新exe覆盖现有外部配置。构建入口为显示radio_link/build_windows.ps1，打包会安装固定PyInstaller；本轮只构建、未启动exe或触发设备操作。
+
+## CLI 静态制动台架（2026-10-21）
+
+此入口操作真实CAN；仅用于驱动电机不转的制动电机台架。更新后重新打开CLI，在停止状态按 **M** 循环选择“正常→制动台架→有人跑动记录→正常”，顶部同时显示选择与运行模式；按 **C** 检查、**S** 启动。台架只启动ZLG桥、CAN接口、控制器、任务机和只读监控，不启动相机/雷达/惯导、定位、建图、规划或RViz。CLI选项只保留于当前会话，不写入正常配置；运行/日志未清理完成时禁止切换。
+
+软件启动后，仍需真实VCU直线加速档位与之后的RES GO；CLI不发送选档、GO或驾驶Command。任务机台架检查结论只表示豁免了传感器，不表示设备在线。错误赛项保持等待。GO放行后中性等待 **5秒**，然后以 **50%** 开度制动 **10秒**，最后持续中性并进入FINISH。全程目标速度及转向为0；参数唯一来源为控制器源码config的 `acceleration.bench_brake.{delay_sec,hold_sec,opening}`，可通过CLI E键编辑，修改后重启生效。该开度是协议请求，不是实测制动力或电机行程百分比。
+
+结束后按 **X** 停止并等待清理，按 **M** 循环选回正常模式，再 **C/S** 正常检查与启动。FINISH和重复GO不重复执行动作；再次台架测试也需停止后重启。重新打开CLI默认正常模式（显式传入`--brake-bench`除外）。根脚本的`--brake-bench`只供同一入口透传，不另建台架启动器；与`--sensor-only`互斥。`--brake-bench --print-config`为无硬件配置审计。
+
+控制器只在观察到IDLE/READY后的有效EXPLORE边沿启动；活动中重启控制器不自动补做动作。急停、运行模式不一致、任务状态超过0.5秒未更新会中止并中性保持，失联恢复也不续做。CAN台架分支在Command或MissionState超过0.5秒未更新时归中性（100ms周期检查，最长约0.6秒），禁止正驱动与转向。停止流程先停止控制器并保持CAN至少0.7秒，再清理其余进程；CAN正常析构再发中性。CAN进程被强杀、硬件掉电或通信断开时不能保证该帧送达，仍以VCU硬件行为为准。
+
+本次新增 `MissionState.brake_bench_mode`，首次使用前必须重建消息及全部直接消费者：controller、mission_manager、can_interface、boundary_detector、path_generator、localization_manager、ndt_localization；其他overlay须使用同版wuta_msgs。正常全栈构建仍用既有build-only流程。台架按需构建只构建惯导消息类型和三个必要节点；不能据此认为其他消费者也已更新。已运行的CLI/ROS实例须停止后加载新环境。
+
+离线验证入口：`fsd_startup/test_brake_bench.py`、`tools/test_brake_bench_ros.py`及can_interface的`brake_bench_can` CTest。ROS测试必须显式设置独立非零ROS_DOMAIN_ID和ROS_LOCALHOST_ONLY=1，不运行根硬件入口；CAN测试用内存设备替身验证真实编码/看门狗，无物理或虚拟总线。实际电机动作需另做实台验证。
+
+本轮离线结果：CLI/配置/GNSS/日志共76项pytest通过（日志用隔离模式及模拟空模式缓存，避免读取宿主真实CAN会话）；独立ROS域的7项台架回归通过，包含真实5秒等待和10秒制动时序；controller PID与内存CAN两项CTest通过。消息与上述直接消费者构建成功；Shell/Python语法及差异空白检查通过。未启动实车入口、真实CAN桥或传感器，未验收制动电机实物动作。
+
+## 人工驾驶记录模式（2026-10-22）
+
+使用现有CLI：先停止并清理上一轮，按 **M** 循环选择正常→制动台架→有人跑动记录→正常，确认顶部为“有人跑动记录（CAN只收不发）”，按 **S** 启动。无需RES GO，车辆由人驾驶；结束按 **X**，待清理完成后按M继续循环切换模式。三种模式互斥，已移除R键入口。也可在CLI启动时传入 `./start_fsd_manager.sh --manual-record`；根脚本支持同名参数，仍复用原监管器。
+
+传感器、定位和感知部署要求沿用正常入口；定位输出仍需通过华测桥自身发布条件，不降低GNSS原点/数据有效性要求。已有驾驶节点或ZLG桥会阻止本模式启动；请在所属入口停止，启动器不自动杀死或复用外部进程。本轮启动自己的只收桥并强制逐帧日志，正常/台架也不得复用只收桥。CAN接口和桥都禁止应用CAN发送，包括心跳，不仅是驾驶开度归零；这不是厂商电气静默模式配置。
+
+日志位于 `wuta_logs/manual_record/<时间>/`，内容与缺失字段说明见[LOGGING](LOGGING.md)。本模式未新增rosbag。首次实车验收应核对CLI模式、VCU接收计数/0x501日志、实际轨迹及总线发送情况；离线回归不能替代硬件验收。
+
+本次离线验证：ZLG桥make、can_interface/mission_manager定向colcon构建完成；CLI人工记录/台架/日志/启动/界面回归通过，源码模块配置检查在加载overlay并禁用用户Python包后通过；CAN桥重连编排与只收设备替代测试通过。CTest内存CAN验证接收解析、回调/周期/退出零发送及既有台架保护；隔离ROS域217回放验证IDLE人工记录持续写driven.csv、命令字段nan、GO/完成不激活任务，以及正常模式仍保留原门控。未启动实车传感器、USB桥或真实CAN；硬件只收与总线实测尚未执行。
+
+### 台架GO后的制动电机前置帧（2026-10-22）
+
+> 2026-10-23当前状态：按用户要求，parseResFrame中调用prepareBrakeBench的入口已暂时注释，以下0x603前置流程仅作历史记录，当前不会执行。GO直接进入原任务机，台架仍按原控制器参数等待5秒、以50%制动10秒、释放中性；0x210和0x301保持，FSD不再额外发送0x603。
+
+
+制动台架在新鲜的直线加速READY及台架自检ok后，收到真实RES GO变化沿时，由原can_interface向标准CAN ID **0x603** 连续写入三组A/B报文（DLC均为8，共6帧）：
+
+```text
+A: 2B 71 60 00 18 FC FF FF
+B: 2B 40 60 00 1F 00 00 00
+顺序：A → B → A → B → A → B
+```
+
+不额外插入帧间等待。全部写入成功后才向原任务机转发GO；任务机进入EXPLORE后原控制器开始5秒中性等待，再执行10秒50%制动，最后中性释放/FINISH。每次运行只发一组6帧，重复GO不重发；正常模式及人工记录模式不增加0x603。任一写入失败立即停止后续帧，不转发本次GO，并发布锁存急停；需检查日志、停止并按原急停流程重新开始。尚未READY或尚无自检结论的早到GO不保留，需就绪后重新按GO。
+
+写入成功只表示SocketCAN发送调用成功，本流程未解析制动电机SDO应答，不表示电机已确认执行。实际总线发送和电机动作以0x603抓包及硬件反馈为准。更新后重新启动CLI车辆进程使新CAN节点生效；无需改变原5秒/10秒/50%参数。

@@ -32,6 +32,30 @@ def configuration_files(controller=None,can=None,calibration=None,base_to_zed=No
       'base_to_zed':Path(base_to_zed or ROOT/'config/base_to_zed.yaml'),
       'visualization':ROOT/'fsd-visualization-code/src/fsd_visualization/config/topics.yaml',
       'radio_linux':ROOT/'fsd-visualization-code/radio_link/radio.yaml'}
+def validate_brake_bench(controller, check_limit=True):
+    config=controller['acceleration']
+    values=config.get('bench_brake', {})
+    for name,default,positive in [('delay_sec',5.0,False),('hold_sec',10.0,True),('opening',0.5,True)]:
+        value=values.get(name,default)
+        if not isinstance(value,(int,float)) or isinstance(value,bool) or not math.isfinite(value) or (value<=0 if positive else value<0):
+            raise ValueError('acceleration.bench_brake.'+name+'数值无效')
+    opening=values.get('opening',0.5)
+    if opening>1 or (check_limit and opening>config['brake']['max_opening']):
+        raise ValueError('台架制动开度不能超过1或acceleration.brake.max_opening')
+
+def brake_bench_manifest(controller=None,can=None,can_device='',documents=None):
+    files={k:p for k,p in module_files(controller,can).items() if k in ('controller','can','mission')}
+    documents=documents or {}
+    values={k:document_parameters(documents[k]) if k in documents else parameters(p) for k,p in files.items()}
+    validate_brake_bench(values['controller'])
+    if values['controller']['vehicle']['max_steer_angle']!=values['can']['steer']['max_steer_angle']:
+        raise ValueError('控制器与CAN最大转角必须相同')
+    return {'files':{k:str(p.resolve()) for k,p in files.items()},'parameters':values,
+      'deployment':{'model_path':'','can_device':can_device or values['can']['can']['device'],
+        'lidar_topic':'','image_topic':'','fusion_topic':'','ins_topic':''},
+      'explicit_overrides':{'model':False,'can_device':bool(can_device)},
+      'policy':'制动台架：仅审计controller/can/mission；不依赖传感器部署资产'}
+
 def manifest(controller=None,can=None,model='',can_device='',documents=None):
     files=module_files(controller,can)
     documents=documents or {}
@@ -44,6 +68,7 @@ def manifest(controller=None,can=None,model='',can_device='',documents=None):
         for actuator in ('throttle','brake'):
             opening=config.get(actuator,{}).get('max_opening',1.0)
             need(isinstance(opening,(int,float)) and not isinstance(opening,bool) and math.isfinite(opening) and 0<=opening<=1,mission+'.'+actuator+'.max_opening必须为[0,1]内的有限值')
+    validate_brake_bench(v['controller'], check_limit=False)
     # CAN回退到54a6038后只读取steer.max_steer_angle；核对实际被节点消费的参数。
     need(v['controller']['vehicle']['max_steer_angle']==v['can']['steer']['max_steer_angle'],'控制器与CAN最大转角必须相同')
     for a,b,msg in [(v['camera']['output_topic'],v['adapter']['boxes_topic'],'图像检测→立体'),(v['adapter']['output_topic'],v['fusion']['camera_topic'],'立体→融合'),(v['adapter']['output_info_topic'],v['fusion']['camera_info_topic'],'CameraInfo→融合'),(v['lidar']['output_topic'],v['fusion']['lidar_topic'],'雷达检测→融合'),(v['lidar']['input_topic'],v['fusion']['pointcloud_topic'],'点云输入')]:need(a==b,msg+'话题不一致')
@@ -68,5 +93,5 @@ def manifest(controller=None,can=None,model='',can_device='',documents=None):
       'explicit_overrides':{'model':bool(model),'can_device':bool(can_device)},
       'policy':'模块源码config唯一来源；旧统一配置不加载；显式部署选项除外'}
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--controller');p.add_argument('--can');p.add_argument('--model',default='');p.add_argument('--can-device',default='');a=p.parse_args()
-    print(json.dumps(manifest(a.controller,a.can,a.model,a.can_device),ensure_ascii=False,indent=2))
+    p=argparse.ArgumentParser();p.add_argument('--controller');p.add_argument('--can');p.add_argument('--model',default='');p.add_argument('--can-device',default='');p.add_argument('--brake-bench',action='store_true');a=p.parse_args()
+    print(json.dumps(brake_bench_manifest(a.controller,a.can,a.can_device) if a.brake_bench else manifest(a.controller,a.can,a.model,a.can_device),ensure_ascii=False,indent=2))

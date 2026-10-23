@@ -45,6 +45,8 @@ def main():
             current = data.get('mission')
         except (OSError, ValueError, AttributeError):
             return
+        if data.get('mode') == 'manual_record':
+            return  # 人工记录目录不按默认赛项重新归类
         if current == mission:
             return
         if current:

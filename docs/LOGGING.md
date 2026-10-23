@@ -169,3 +169,9 @@ CLI两种组件日志界面共用`dashboard.component_log_files`，覆盖`fsd_mo
 `.runtime/fsd_manager/control/`是管理会话状态，独立于RunLog归档：heartbeat.json含boot/运行/活动请求；inbox/<UUID>.json为请求；results/<UUID>.json先写executing再写最终ok/result/error/source_stamp_ns；transactions/<UUID>.json含配置原内容备份和提交阶段，config_state.json保守记录待确认加载项。配置保存/接口失败仍由原Manager.emit记入当前CLI日志，不另建业务日志生命周期。
 
 结果UUID、请求内容hash和持久executing标记用于去重。执行途中CLI崩溃可能留下未知结果，不擅自重新执行；可用control_api.py cli.result --request-id查询。未完成请求/事务存在时不要删除该目录；事务恢复发现外部文件冲突会报错待人工处理。启动/停止不替换原运行journal、scope或完整日志传输规则。
+
+## 人工驾驶记录（2026-10-22）
+
+CLI `M` 循环选择“有人跑动记录”后按 `S` 启动、`X` 停止，保存于 `wuta_logs/manual_record/<YYYYmmdd_HHMMSS>/`。沿用正常日志生命周期和文件格式：manager日志/journal、run.json（mode=manual_record）、配置快照、模块/ROS输出、华测数据及诊断、ZLG逐帧接收日志、trajectory CSV及地图产物（满足原保存条件时）。不新增rosbag或另一套日志收集器，原始点云/图像不因这个模式自动落盘。
+
+实际轨迹从有效 `/localization/pose` 到达开始记录，无需VCU选档或RES GO；速度仍来自华测。未启动控制器，CSV命令字段及时间保持nan，不能推断人工驾驶的油门/转角。自动任务未激活时planned.csv可只有表头，不生成虚构计划或圈次。只收CAN桥强制启用现有帧日志，VCU原始报文在 `zlgCAN_log/<桥时间戳>/vcu2fsd/0x501.log` 等文件中；本模式不产生硬件发送日志。自检故障/急停持续记录，CLI停止后沿原清理/落盘流程结束归档。运行目录不会被默认trackdrive任务字段重新分类。
