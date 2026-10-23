@@ -562,3 +562,5 @@ ZLG桥本次独占启动 `--receive-only --log-frames=on`，只保留硬件→So
 2026-10-22：静态制动台架GO前置协议扩展在原`can_interface::parseResFrame/prepareBrakeBench`内，读取权威READY、自检并在GO转发前发送0x603两种固定8字节报文交替三组；六帧成功写入后仍由原任务机决定EXPLORE、原controller计时与制动，不新增任务状态机、Command生产者或启动入口。失败沿原急停事件退出。详见[ROS_INTERFACE](ROS_INTERFACE.md)及[DEPLOYMENT](DEPLOYMENT.md)。
 
 2026-10-23当前状态：台架0x603前置调用已临时注释，GO恢复直接转交原任务机；controller原5秒等待、10秒50%制动及中性释放仍经Command→0x210执行，原0x301心跳保持。prepareBrakeBench源码保留但不调用，无额外电机直发报文；正常FSD及人工记录职责不变。
+
+无线0.7.10：远程cli.cycle_mode经原ControlAPI/Manager.operate调用M键cycle_run_profile，原停止/清理/会话限制与重置检查结果保持。Manager原发布状态的selected_mode/active_mode补入心跳与cli.status，由Linux无线转发；PC仅据权威字段派生模式。模式切换与检查/启动/停止共用控制优先级与在途互斥，expected_mode校验防止迟到请求在其他已选模式下切换。显示在原CLI状态Indicator内，不新设模式面板或驾驶状态机。

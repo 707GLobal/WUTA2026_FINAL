@@ -151,3 +151,5 @@ Windows exe：radio_link/windows_receiver.py为PC入口/内置与外部配置选
 2026-10-22台架前置0x603：FSD `system/can_interface/src/can_interface.cpp:prepareBrakeBench/parseResFrame`负责A/B交替三组及GO转发顺序；`test/test_brake_bench_prepare.cpp`为内存设备离线验证，覆盖6帧顺序/字节、GO后置、重复GO、未就绪/自检缺失、写失败急停和正常模式无额外发送。
 
 2026-10-23当前状态：`can_interface.cpp:parseResFrame`中`prepareBrakeBench()`调用已临时注释；函数和历史测试源码保留，`brake_bench_prepare` CTest标记DISABLED。当前台架只走原GO→任务机→controller定时→0x210控制链，原0x301心跳保持。
+
+Foxglove M键适配（0.7.10）：fsd_startup/manager.py:operate(cycle_mode)/cycle_run_profile/publish；control_api.py:execute/status及优先队列。显示radio_link/fsd_radio/cli_control.py转发模式字段、发送expected_mode并派生display_state_with_mode，rpc.py:CONTROL_OPERATIONS加入cli.cycle_mode。foxglove_layout.json的Publish!cli_cycle_mode位于原检查/启动按钮行，原Indicator!cliState消费含模式字段。
