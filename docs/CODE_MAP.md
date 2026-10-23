@@ -153,3 +153,5 @@ Windows exe：radio_link/windows_receiver.py为PC入口/内置与外部配置选
 2026-10-23当前状态：`can_interface.cpp:parseResFrame`中`prepareBrakeBench()`调用已临时注释；函数和历史测试源码保留，`brake_bench_prepare` CTest标记DISABLED。当前台架只走原GO→任务机→controller定时→0x210控制链，原0x301心跳保持。
 
 Foxglove M键适配（0.7.10）：fsd_startup/manager.py:operate(cycle_mode)/cycle_run_profile/publish；control_api.py:execute/status及优先队列。显示radio_link/fsd_radio/cli_control.py转发模式字段、发送expected_mode并派生display_state_with_mode，rpc.py:CONTROL_OPERATIONS加入cli.cycle_mode。foxglove_layout.json的Publish!cli_cycle_mode位于原检查/启动按钮行，原Indicator!cliState消费含模式字段。
+
+macOS产物：显示.github/workflows/macos-receiver.yml（workflow_dispatch、arm64/x86_64矩阵、Artifacts与可选Release）；radio_link/build_macos.sh、start_macos.command、MACOS_README.md；共享windows_receiver.spec按平台收集串口后端。打包不执行应用或硬件测试，构建信息随包附带。

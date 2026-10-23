@@ -564,3 +564,5 @@ ZLG桥本次独占启动 `--receive-only --log-frames=on`，只保留硬件→So
 2026-10-23当前状态：台架0x603前置调用已临时注释，GO恢复直接转交原任务机；controller原5秒等待、10秒50%制动及中性释放仍经Command→0x210执行，原0x301心跳保持。prepareBrakeBench源码保留但不调用，无额外电机直发报文；正常FSD及人工记录职责不变。
 
 无线0.7.10：远程cli.cycle_mode经原ControlAPI/Manager.operate调用M键cycle_run_profile，原停止/清理/会话限制与重置检查结果保持。Manager原发布状态的selected_mode/active_mode补入心跳与cli.status，由Linux无线转发；PC仅据权威字段派生模式。模式切换与检查/启动/停止共用控制优先级与在途互斥，expected_mode校验防止迟到请求在其他已选模式下切换。显示在原CLI状态Indicator内，不新设模式面板或驾驶状态机。
+
+macOS接收端打包（2026-10-23）：沿用radio_link/windows_receiver.py和原PC业务；windows_receiver.spec仅按sys.platform切换pyserial动态枚举后端，不新增接收/控制所有者。build_macos.sh负责原生构建、附布局/启动.command/构建信息并生成tar.gz与校验；GitHub Actions双架构构建成功后可发布独立Mac Release。不是Windows交叉编译，不改Linux或无线协议。

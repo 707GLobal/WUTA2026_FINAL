@@ -248,3 +248,5 @@ B: 2B 40 60 00 1F 00 00 00
 写入成功只表示SocketCAN发送调用成功，本流程未解析制动电机SDO应答，不表示电机已确认执行。实际总线发送和电机动作以0x603抓包及硬件反馈为准。更新后重新启动CLI车辆进程使新CAN节点生效；无需改变原5秒/10秒/50%参数。
 
 无线0.7.10模式按钮：主仓库git pull --ff-only后git submodule update --init --recursive，等待在途操作完成，按原部署流程加载新版CLI与Linux无线。Windows退出旧接收端再运行新版脚本/exe，并重新导入新版布局。原检查/启动按钮行增加“切换模式”：正常→制动台架→有人跑动记录→正常；仅停止并清理完成后允许。模式附加在原CLI状态指示器，运行时显示active_mode，停止时显示selected_mode，未知/离线不假定正常。切换后按新模式重新检查再启动，切换不会自动启动。运行模式与赛项/VCU档位不同。旧CLI或旧发送端缺字段时显示未知模式并拒绝切换；不能仅更新Windows。本轮未测试、未启动接收器或执行远程操作；Windows exe仅重新构建。
+
+Mac接收端：GitHub Actions构建两套macOS15原生产物，Apple芯片选arm64、Intel选x86_64；完整解压到可写目录，先退出其他接收程序，再双击Start_Receiver.command。无需Python，仍需Foxglove及必要USB驱动；连接地址/布局与现有PC相同，终端可--mode bridge或--port /dev/cu.usbserial-XXX覆盖，Ctrl+C退出。配置导出与日志目录保持原PC接口。未Developer ID签名/公证，首次可能需系统隐私与安全性手动允许；不关闭全局保护。构建状态与Mac Release以GitHub实际结果为准，未启动应用或验收设备。
