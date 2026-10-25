@@ -53,3 +53,23 @@ def test_serial_and_parallel_sensor_probes_route_to_driver_group():
               if re.search(r'wait_topic "\$(LIDAR|IMAGE)_TOPIC"', line)]
     assert len(probes) == 4
     assert all(re.search(r'perception_drivers(?:\)|\s*$)', line) for line in probes)
+
+
+@pytest.mark.parametrize('topic,label,expected', [
+    ('/lidar', '雷达', 'reliable'), ('/image', '相机', 'reliable')])
+def test_first_frame_probe_uses_topic_specific_reliability(topic, label, expected, tmp_path):
+    function = re.search(r'(?ms)^wait_topic\(\) \{\n.*?^\}', SOURCE)[0]
+    harness = r'''
+set -eu
+FSD_MODULES_DIR="$PWD/modules"
+LIDAR_TOPIC=/lidar; IMAGE_TOPIC=/image; INS_TOPIC=/ins; FUSION_TOPIC=/fusion
+timeout() { printf '%s\n' "$*" > "$PWD/probe_args"; }
+check_children() { :; }
+report_ok() { :; }
+'''
+    result = subprocess.run(['/bin/bash', '-c', harness + function +
+                             f'\nwait_topic "{topic}" 1 "{label}"\n'],
+                            cwd=tmp_path, capture_output=True, text=True, timeout=5)
+    assert result.returncode == 0, result.stderr
+    args = (tmp_path / 'probe_args').read_text()
+    assert '--qos-reliability ' + expected in args

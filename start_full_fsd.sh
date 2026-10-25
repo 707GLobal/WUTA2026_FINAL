@@ -619,10 +619,16 @@ wait_topic() {
         *) fail "未配置启动检查的话题类型：$topic" ;;
     esac
     printf '[检查] %s：等待 %s（最多 %s 秒）...\n' "$label" "$topic" "$seconds"
-    # Preserve CLI errors, and accept either best-effort or reliable sensor publishers.
-    # Explicit types let echo wait even before DDS discovers a publisher.
+    # Perception sources provide Reliable; INS retains its existing compatibility.
+    # Explicit types also allow pre-discovery checks.
+    local -a qos_args=(--qos-reliability best_effort)
+    if [[ "$message_type" == sensor_msgs/msg/PointCloud2 ||
+          "$message_type" == sensor_msgs/msg/Image ||
+          "$message_type" == wuta_msgs/msg/ConeArray ]]; then
+        qos_args=(--qos-reliability reliable --qos-depth 1)
+    fi
     timeout "$seconds" ros2 topic echo "$topic" "$message_type" --once --field header \
-        --qos-reliability best_effort >"$diagnostic" 2>&1 || code=$?
+        "${qos_args[@]}" >"$diagnostic" 2>&1 || code=$?
     [[ "${TOPIC_CHECK_WORKER:-0}" == 1 ]] || check_children
     if [[ "$code" != 0 ]]; then
         printf '话题检查输出（%s）：\n' "$diagnostic" >&2

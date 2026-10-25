@@ -248,3 +248,21 @@ B: 2B 40 60 00 1F 00 00 00
 写入成功只表示SocketCAN发送调用成功，本流程未解析制动电机SDO应答，不表示电机已确认执行。实际总线发送和电机动作以0x603抓包及硬件反馈为准。更新后重新启动CLI车辆进程使新CAN节点生效；无需改变原5秒/10秒/50%参数。
 
 无线0.7.10模式按钮：主仓库git pull --ff-only后git submodule update --init --recursive，等待在途操作完成，按原部署流程加载新版CLI与Linux无线。Windows退出旧接收端再运行新版脚本/exe，并重新导入新版布局。原检查/启动按钮行增加“切换模式”：正常→制动台架→有人跑动记录→正常；仅停止并清理完成后允许。模式附加在原CLI状态指示器，运行时显示active_mode，停止时显示selected_mode，未知/离线不假定正常。切换后按新模式重新检查再启动，切换不会自动启动。运行模式与赛项/VCU档位不同。旧CLI或旧发送端缺字段时显示未知模式并拒绝切换；不能仅更新Windows。本轮未测试、未启动接收器或执行远程操作；Windows exe仅重新构建。
+
+### 感知 Reliable 部署（2026-10-25）
+
+更新主仓库与FSD、CLI、显示子模块后，构建FSD的`lidar_detection camera_detection detection_fusion mission_manager`及显示工作空间的`fsd_visualization`。使用现有依赖环境和构建参数；停止旧算法与显示进程、加载新overlay，再重新打开CLI/FSD及独立RViz。运行中的节点不会因源码或构建更新自动切换QoS。
+
+实车RoboSense点云和ZED RGB/注册深度/CameraInfo已提供Reliable；仿真输入及旧标注图发布者也须提供Reliable才能匹配新订阅。无需修改相机频率、深度模式或匹配窗口。完整深度见[ROS_INTERFACE](ROS_INTERFACE.md#感知链路-qos2026-10-25)。
+
+隔离回归（从主仓库根目录执行，加载现有ROS依赖环境）：
+
+```bash
+source /opt/ros/humble/setup.bash
+source WUTA-FSD/ros2_ws/install/setup.bash
+source fsd-visualization-code/install/setup.bash
+/usr/bin/python3 -m pytest -q tools/test_sensor_log_routing.py fsd_startup/test_startup.py fsd-visualization-code/tests/test_interfaces.py::test_configuration_profiles
+ROS_DOMAIN_ID=177 ROS_LOCALHOST_ONLY=1 /usr/bin/python3 -m pytest -q tools/test_camera_reliable_ros.py WUTA-FSD/ros2_ws/src/perception/camera_detection/test/test_stereo.py WUTA-FSD/ros2_ws/src/perception/camera_detection/test/test_yolo.py
+```
+
+本次相关构建通过，两组回归分别14与21项通过。合成相机回归不启动硬件/CAN/控制器；隔离ROS端点已核对融合及任务机的感知输入为Reliable。未重启实车全栈，仍需重启后核对实际帧率、处理覆盖率和帧龄，不能将离线结果作为实车不丢帧保证。

@@ -6,7 +6,7 @@
 | 功能 | 核心实现 | 配置 / 验证入口 |
 | --- | --- | --- |
 | ROS 消息 | `common/wuta_msgs/msg`、`common/autoware_msgs/msg` | 各包 CMakeLists/package.xml；`WUTA-FSD/ros2_ws/test/test_cone_colors_ros.py` |
-| LiDAR 锥桶检测 | `perception/lidar_detection/src/{lidar_detection_node,traditional_detector,dl_detector}.cpp` | `perception/lidar_detection/config/lidar_detection.yaml`；DL 为占位，使用传统后端 |
+| LiDAR 锥桶检测 | `perception/lidar_detection/src/{lidar_detection_node,traditional_detector,dl_detector}.cpp` | `perception/lidar_detection/config/lidar_detection.yaml`；DL 为占位，使用传统后端；点云输入 Reliable/Volatile/KeepLast(1) |
 | 图像检测 | `perception/camera_detection/camera_detection/{yolo,yolo_node}.py`、`src/lwdetr_tensorrt_node.cpp` | `config/camera_detection.yaml`；`test/test_yolo.py` |
 | 双目深度适配 | `perception/camera_detection/src/stereo_detection_adapter_cpp.cpp`、`camera_detection/{adapter,stereo}.py` | `config/stereo_adapter.yaml`；`test/test_stereo.py` |
 | 相机雷达后融合 | `perception/detection_fusion/src/detection_fusion_node_cpp.cpp`、`detection_fusion/{node,core,calibration}.py` | `config/fusion.yaml`；`test/test_core.py`、`test/test_calibration.py` |
@@ -153,3 +153,17 @@ Windows exe：radio_link/windows_receiver.py为PC入口/内置与外部配置选
 2026-10-23当前状态：`can_interface.cpp:parseResFrame`中`prepareBrakeBench()`调用已临时注释；函数和历史测试源码保留，`brake_bench_prepare` CTest标记DISABLED。当前台架只走原GO→任务机→controller定时→0x210控制链，原0x301心跳保持。
 
 Foxglove M键适配（0.7.10）：fsd_startup/manager.py:operate(cycle_mode)/cycle_run_profile/publish；control_api.py:execute/status及优先队列。显示radio_link/fsd_radio/cli_control.py转发模式字段、发送expected_mode并派生display_state_with_mode，rpc.py:CONTROL_OPERATIONS加入cli.cycle_mode。foxglove_layout.json的Publish!cli_cycle_mode位于原检查/启动按钮行，原Indicator!cliState消费含模式字段。
+
+## 感知 Reliable 实现与验证（2026-10-25）
+
+| 入口 | 实现位置 |
+| --- | --- |
+| 雷达检测输入 | FSD `perception/lidar_detection/src/lidar_detection_node.cpp` |
+| 相机输入与标注图 | FSD `perception/camera_detection/camera_detection/{yolo_node,adapter}.py`、`src/{stereo_detection_adapter_cpp,lwdetr_tensorrt_node}.cpp` |
+| 融合输入 | FSD `perception/detection_fusion/src/detection_fusion_node_cpp.cpp`、`detection_fusion/node.py` |
+| 任务机雷达/相机心跳 | FSD `system/mission_manager/src/mission_manager.cpp` |
+| CLI首帧检查与遥测 | 根 `start_full_fsd.sh:wait_topic`、`fsd_startup/dashboard.py:telemetry_qos` |
+| RViz及显示桥 | `fsd-visualization-code/src/fsd_visualization/config/fsd.rviz`、`fsd_visualization/{configuration,bridge}.py`；根 `config/full_fsd.rviz` |
+| 离线验证 | 根 `tools/test_sensor_log_routing.py`、`tools/test_camera_reliable_ros.py`；CLI `test_startup.py`；显示 `tests/test_interfaces.py::test_configuration_profiles` |
+
+隔离ROS相机回归覆盖Python/C++深度适配、曝光时间保留、三维估计及YOLO输入/标注图Reliable连接。QoS深度与兼容边界见[ROS_INTERFACE](ROS_INTERFACE.md#感知链路-qos2026-10-25)。

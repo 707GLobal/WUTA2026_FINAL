@@ -110,7 +110,7 @@ flowchart TD
 | `include/lidar_detection/dl_detector.hpp`、`src/dl_detector.cpp` | 深度学习后端占位，构造时明确报未实现，不能直接切换当可用算法 |
 | `config/lidar_detection.yaml`、`CMakeLists.txt` | 当前检测配置与lidar_detection_node构建；话题裸默认值不一定是实车实际配置 |
 
-输入原始点云，输出 `/perception/lidar/cones_raw` 单帧几何候选供融合。它不累计地图、不做正式计圈，UNKNOWN颜色由下游语义证据处理。新点云检测后端扩展IDetector；跨帧去重应修改建图，不能在此再维护权威地图。
+输入原始点云（2026-10-25：Reliable / Volatile / KeepLast(1)），输出 `/perception/lidar/cones_raw` 单帧几何候选供融合。它不累计地图、不做正式计圈，UNKNOWN颜色由下游语义证据处理。新点云检测后端扩展IDetector；跨帧去重应修改建图，不能在此再维护权威地图。
 
 ### 4.3 perception/camera_detection：图像检测与深度适配
 
@@ -564,3 +564,9 @@ ZLG桥本次独占启动 `--receive-only --log-frames=on`，只保留硬件→So
 2026-10-23当前状态：台架0x603前置调用已临时注释，GO恢复直接转交原任务机；controller原5秒等待、10秒50%制动及中性释放仍经Command→0x210执行，原0x301心跳保持。prepareBrakeBench源码保留但不调用，无额外电机直发报文；正常FSD及人工记录职责不变。
 
 无线0.7.10：远程cli.cycle_mode经原ControlAPI/Manager.operate调用M键cycle_run_profile，原停止/清理/会话限制与重置检查结果保持。Manager原发布状态的selected_mode/active_mode补入心跳与cli.status，由Linux无线转发；PC仅据权威字段派生模式。模式切换与检查/启动/停止共用控制优先级与在途互斥，expected_mode校验防止迟到请求在其他已选模式下切换。显示在原CLI状态Indicator内，不新设模式面板或驾驶状态机。
+
+## 感知链路 Reliable 接入（2026-10-25）
+
+沿既有相机检测、深度适配、雷达检测、融合、任务机心跳、CLI检查/遥测与RViz显示统一相关感知输入为Reliable/Volatile；YOLO与LW-DETR标注图发布同步为Reliable。检测结果、任务状态与控制指令的生产者和职责不变，不新增模块或发布者。
+
+雷达检测保持KeepLast(1)，融合与任务机保持深度5；相机输入与标注图保持深度5，CLI/RViz保持深度1。最新图像覆盖及深度匹配机制不变，Reliable不承诺算法过载时处理每帧。惯导兼容订阅及急停锁存契约不变。完整接口见[ROS_INTERFACE](ROS_INTERFACE.md#感知链路-qos2026-10-25)，部署见[DEPLOYMENT](DEPLOYMENT.md#感知-reliable-部署2026-10-25)。

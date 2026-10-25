@@ -216,3 +216,21 @@ MissionState新增`bool brake_bench_mode`，由mission_manager发布；任务机
 只在brake_bench_mode=true时，can_interface收到0x1E4首字节0x13的新变化沿，且权威任务状态为新鲜的acceleration/READY、台架自检ok，才向标准ID0x603写入6帧，DLC8，依次为 `2B 71 60 00 18 FC FF FF` 与 `2B 40 60 00 1F 00 00 00` 交替三组。六次SocketCAN写入成功后才发布原/system/start_command；无新ROS话题或消息字段。原任务机决定EXPLORE，原controller随后执行5秒等待和10秒制动。任一写入失败停止序列、不发布GO、发布原/system/emergency=true；无自动重试、无SDO应答确认。正常模式和receive_only不发送这些前置帧。
 
 无线0.7.10：新增控制请求cli.cycle_mode，含expected_mode（normal/brake_bench/manual_record）、原boot/过期时间/源时间与请求ID；Linux原Manager串行执行M键循环，运行/清理及sensor-only/build-only会话拒绝。选中模式变化则拒绝迟到请求，不自动重试新ID。CLI心跳与cli.status增加selected_mode、active_mode，后者沿用run_log模式hardware/brake_bench/manual_record/sensor_only或null；PC /radio/cli/control新增mode_display、display_state_with_mode，保留原display_state/phase及源时间。请求及回复/ACK沿用高优先级，不新增ROS话题、驾驶指令或模块配置写入。
+
+### 感知链路 QoS（2026-10-25）
+
+下表均为Reliable / Volatile / KeepLast；当前实车RoboSense点云及ZED的RGB、注册深度、CameraInfo发布者提供Reliable。
+
+| 消费或发布端 | 深度 |
+| --- | --- |
+| lidar_detection原始点云输入 | 1 |
+| YOLO/LW-DETR图像输入、标注图发布 | 5 |
+| Python/C++深度适配器的检测框、深度、CameraInfo输入 | 5 |
+| C++/Python融合的相机检测/内参、雷达检测/原始点云输入 | 5 |
+| mission_manager雷达与相机心跳输入 | 5 |
+| CLI感知首帧检查、PointCloud2/Image/CameraInfo/ConeArray遥测 | 1 |
+| RViz原始点云与标注图、显示桥融合ConeArray输入 | 1 |
+
+检测结果和深度适配输出保留原Reliable/depth10发布。惯导兼容订阅、其他显示Marker及急停Transient Local锁存契约不变。RViz配置生成器覆盖旧模板的原始点云与标注图QoS。
+
+Best Effort发布者不能满足这些Reliable订阅，仿真输入也须配套提供Reliable。更新后须重启相关算法、CLI与显示，旧Best Effort标注图发布进程不能满足新显示订阅。原最新图像覆盖、检测/深度20帧缓存、10 ms匹配容差与50 ms等待不变；Reliable减少传输丢样，但不保证算法过载时每帧均被处理。

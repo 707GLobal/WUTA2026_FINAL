@@ -43,7 +43,7 @@ Visualization Manager:
       Depth: 1
       Durability Policy: Volatile
       History Policy: Keep Last
-      Reliability Policy: Best Effort
+      Reliability Policy: Reliable
       Value: /camera/yolo/image_annotated
     Value: true
   - Class: rviz_default_plugins/MarkerArray
@@ -96,7 +96,7 @@ Visualization Manager:
       Durability Policy: Volatile
       Filter size: 10
       History Policy: Keep Last
-      Reliability Policy: Best Effort
+      Reliability Policy: Reliable
       Value: /rslidar_points
     Use Fixed Frame: true
     Use rainbow: true
