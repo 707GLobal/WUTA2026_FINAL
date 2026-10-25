@@ -266,3 +266,5 @@ ROS_DOMAIN_ID=177 ROS_LOCALHOST_ONLY=1 /usr/bin/python3 -m pytest -q tools/test_
 ```
 
 本次相关构建通过，两组回归分别14与21项通过。合成相机回归不启动硬件/CAN/控制器；隔离ROS端点已核对融合及任务机的感知输入为Reliable。未重启实车全栈，仍需重启后核对实际帧率、处理覆盖率和帧龄，不能将离线结果作为实车不丢帧保证。
+
+Mac接收端：GitHub Actions构建两套macOS15原生产物，Apple芯片选arm64、Intel选x86_64；完整解压到可写目录，先退出其他接收程序，再双击Start_Receiver.command。无需Python，仍需Foxglove及必要USB驱动；连接地址/布局与现有PC相同，终端可--mode bridge或--port /dev/cu.usbserial-XXX覆盖，Ctrl+C退出。配置导出与日志目录保持原PC接口。未Developer ID签名/公证，首次可能需系统隐私与安全性手动允许；不关闭全局保护。构建状态与Mac Release以GitHub实际结果为准，未启动应用或验收设备。

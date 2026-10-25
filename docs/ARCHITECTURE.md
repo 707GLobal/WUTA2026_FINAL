@@ -570,3 +570,5 @@ ZLG桥本次独占启动 `--receive-only --log-frames=on`，只保留硬件→So
 沿既有相机检测、深度适配、雷达检测、融合、任务机心跳、CLI检查/遥测与RViz显示统一相关感知输入为Reliable/Volatile；YOLO与LW-DETR标注图发布同步为Reliable。检测结果、任务状态与控制指令的生产者和职责不变，不新增模块或发布者。
 
 雷达检测保持KeepLast(1)，融合与任务机保持深度5；相机输入与标注图保持深度5，CLI/RViz保持深度1。最新图像覆盖及深度匹配机制不变，Reliable不承诺算法过载时处理每帧。惯导兼容订阅及急停锁存契约不变。完整接口见[ROS_INTERFACE](ROS_INTERFACE.md#感知链路-qos2026-10-25)，部署见[DEPLOYMENT](DEPLOYMENT.md#感知-reliable-部署2026-10-25)。
+
+macOS接收端打包（2026-10-23）：沿用radio_link/windows_receiver.py和原PC业务；windows_receiver.spec仅按sys.platform切换pyserial动态枚举后端，不新增接收/控制所有者。build_macos.sh负责原生构建、附布局/启动.command/构建信息并生成tar.gz与校验；GitHub Actions双架构构建成功后可发布独立Mac Release。不是Windows交叉编译，不改Linux或无线协议。

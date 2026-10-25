@@ -52,3 +52,5 @@ CLI离线时检查Linux端CLI、无线程序是否仍在运行；Foxglove连接�
 退出Windows接收程序，在其终端按 `Ctrl+C`。修改无线模块参数前先退出接收程序、释放COM3，改完再启动。RSSI显示的是原始值，不能直接当作dBm。
 
 模式切换：在“CLI日志与控制”的检查/启动按钮行点“切换模式”，等同CLI的M键，顺序为正常→制动台架→有人跑动记录→正常。先停止并等待清理完成；切换后重新检查，再按需启动。当前模式直接显示在原“CLI状态”背景指示器内，须等Linux确认。这里是运行配置，不是VCU赛项或GO。新版CLI、Linux无线、Windows接收端及布局需配套更新。
+
+Mac：从Mac Release下载与芯片匹配的arm64或x86_64包，完整解压后双击Start_Receiver.command；无需安装Python。Foxglove连接地址与布局导入相同；先退出其他接收程序，Ctrl+C停止。首次系统可能要求手动允许打开未公证应用，详见包内README。

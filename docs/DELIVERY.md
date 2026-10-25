@@ -34,7 +34,7 @@ CLI及显示各是独立Git子模块，修改在子模块提交推送后，主�
 
 ## 本机交付文件
 
-工作目录D:\ebyte，主仓库WUTA2026_FINAL。output保留五个交付文件：
+工作目录D:\ebyte，主仓库WUTA2026_FINAL。output主要交付文件如下，另有校验文件及macOS子目录：
 
 - E22_Windows_Android_开发文档.md/pdf：原模块首版开发设计资料，包含旧方案与未来Android方向，不是当前FSD无线部署配置。
 - FSD_E22_CLI与传感器.json：当前布局导入副本；文件名保留兼容，内部选项卡按上表拆分。
@@ -67,3 +67,7 @@ CLI及显示各是独立Git子模块，修改在子模块提交推送后，主�
 升级后停止旧运行，更新主仓库及子模块并重建wuta_msgs和所有直接消费者，重新打开CLI。详情及历史验证证据见[DEPLOYMENT](DEPLOYMENT.md)、[ROS_INTERFACE](ROS_INTERFACE.md)、[LOGGING](LOGGING.md)。本轮文档整理与推送不追加自动测试、不操作硬件；此前离线构建/测试和实台日志分析按各自日期记录，不能视为当前完整FSD实车验收。
 
 0.7.10交付：配套更新CLI/无线，原CLI状态Indicator合并当前运行配置显示，原按钮行新增M键模式循环；源码包、布局与Windows exe同步更新。该模式不是赛项档位；只在停止清理完成后切换，再重新检查/启动。本次未启动任何设备或执行测试。
+
+macOS交付入口：可视化子仓库Actions手动运行Build macOS E22 receiver，成功产物为FSD_E22_Receiver-macOS-arm64.tar.gz和FSD_E22_Receiver-macOS-x86_64.tar.gz及各自sha256。可选发布独立radio-macos-v0.7.10 Release；每包包含原生可执行文件、Start_Receiver.command、布局、使用说明和BUILD_INFO，未实机验收，不替换Windows成品。
+
+2026-10-23两种架构已由[Actions 39927075305](https://github.com/starry1N/fsd-visualization-code/actions/runs/39927075305)原生构建并上传[Mac Release](https://github.com/starry1N/fsd-visualization-code/releases/tag/radio-macos-v0.7.10)，构建源为显示5861f7c。本机下载保存在D:\ebyte\output\macOS，不提交二进制到源码仓库；尚未启动应用或完成设备验收。

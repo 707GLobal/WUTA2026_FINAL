@@ -167,3 +167,5 @@ Foxglove M键适配（0.7.10）：fsd_startup/manager.py:operate(cycle_mode)/cyc
 | 离线验证 | 根 `tools/test_sensor_log_routing.py`、`tools/test_camera_reliable_ros.py`；CLI `test_startup.py`；显示 `tests/test_interfaces.py::test_configuration_profiles` |
 
 隔离ROS相机回归覆盖Python/C++深度适配、曝光时间保留、三维估计及YOLO输入/标注图Reliable连接。QoS深度与兼容边界见[ROS_INTERFACE](ROS_INTERFACE.md#感知链路-qos2026-10-25)。
+
+macOS产物：显示.github/workflows/macos-receiver.yml（workflow_dispatch、arm64/x86_64矩阵、Artifacts与可选Release）；radio_link/build_macos.sh、start_macos.command、MACOS_README.md；共享windows_receiver.spec按平台收集串口后端。打包不执行应用或硬件测试，构建信息随包附带。
