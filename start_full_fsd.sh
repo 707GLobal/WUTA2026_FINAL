@@ -43,6 +43,7 @@ SENSOR_ONLY=0
 BRAKE_BENCH=0
 RVIZ=1
 REUSE_INS=0
+DISABLE_INS=0
 CHILD_PIDS=()
 CHILD_NAMES=()
 OBSERVER_PIDS=()
@@ -130,7 +131,7 @@ trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 usage() {
     cat <<'EOF'
 Usage: ./start_full_fsd.sh [--check|--build-only|--status|--stop]
-       [--build|--skip-build] [--sensor-only|--brake-bench|--manual-record] [--reuse-ins] [--rviz|--no-rviz] [--image-view]
+       [--build|--skip-build] [--sensor-only|--brake-bench|--manual-record] [--reuse-ins] [--no-ins|--with-ins] [--rviz|--no-rviz] [--image-view]
        [--ins-port=/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_BKEDc143M08-if00-port0] [--model=FILE] [--calibration=FILE]
        [--base-to-zed=FILE] [--controller-config=FILE] [--can-config=FILE] [--print-config]
 
@@ -144,6 +145,10 @@ RViz opens by default using fsd-visualization-code and its bundled display
 and topic configuration. --no-rviz disables it;
 --image-view aliases --rviz.
 --reuse-ins uses an existing INS bridge and still verifies its odometry output.
+--no-ins disables INS startup, serial checks and INS-dependent first-frame checks.
+--with-ins restores normal INS startup/checks; when repeated, the last switch wins.
+--no-ins also overrides mission_manager check_imu=false for this run only.
+Other device checks and GNSS/driving gates keep their configured behavior.
 An existing ZLG CAN bridge on the selected interface is verified and reused.
 Otherwise a new bridge is started via sudo. External bridges survive FSD shutdown.
 Ctrl-C stops only processes started by this script. Logs are in wuta_logs/<mission>/<YYYYmmdd_HHMMSS>/.
@@ -163,6 +168,8 @@ for arg in "$@"; do
         --brake-bench) BRAKE_BENCH=1 ;;
         --reuse-can) echo '[提示] --reuse-can 已停用；每次启动都会通过 sudo 重连 CAN 盒。' ;;
         --reuse-ins) REUSE_INS=1 ;;
+        --no-ins) DISABLE_INS=1 ;;
+        --with-ins) DISABLE_INS=0 ;;
         --rviz) RVIZ=1 ;;
         --no-rviz) RVIZ=0 ;;
         --image-view) RVIZ=1 ;;
@@ -323,7 +330,9 @@ check_prerequisites() {
         require_file "$CONTROLLER_CONFIG"
         require_file "$CAN_CONFIG"
         require_file "$FSD_WS/src/perception/detection_fusion/launch/fusion_modules_hardware.launch.py"
-        require_file "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh"
+        if [[ "$DISABLE_INS" == 0 ]]; then
+            require_file "$CHC_WS/src/chcnav/scripts/start_chcnav_fsd.sh"
+        fi
         require_file "$ROOT/zlgcan_bridge/start_zlg_bridge.sh"
         require_file "$ROOT/tools/run_privileged_group.py"
         if [[ "$RVIZ" == 1 ]]; then
@@ -334,15 +343,19 @@ check_prerequisites() {
         fi
         report_ok 'ROS、硬件驱动、模型与感知部署文件齐全'
         [[ -d "$HARDWARE_DEPS" ]] || { fail "缺少 Python 硬件依赖目录：$HARDWARE_DEPS"; }
-        [[ -r "$INS_PORT" && -w "$INS_PORT" ]] || {
-            echo "[失败] 华测串口不存在或缺少读写权限：$INS_PORT" >&2
-            echo "See humble-chcnav-cgi_ros2pkg/README.md: sudo chmod 666 $INS_PORT (temporary), or join dialout and log in again." >&2
-            exit 1;
-        }
-        report_ok "华测串口可读写：$INS_PORT"
-        if [[ "$REUSE_INS" == 0 ]]; then
-            /usr/bin/python3 "$CHC_WS/src/chcnav/scripts/check_serial_port.py" "$INS_PORT" || \
-                fail '华测串口不可独占，尚未启动任何硬件进程'
+        if [[ "$DISABLE_INS" == 0 ]]; then
+            [[ -r "$INS_PORT" && -w "$INS_PORT" ]] || {
+                echo "[失败] 华测串口不存在或缺少读写权限：$INS_PORT" >&2
+                echo "See humble-chcnav-cgi_ros2pkg/README.md: sudo chmod 666 $INS_PORT (temporary), or join dialout and log in again." >&2
+                exit 1;
+            }
+            report_ok "华测串口可读写：$INS_PORT"
+            if [[ "$REUSE_INS" == 0 ]]; then
+                /usr/bin/python3 "$CHC_WS/src/chcnav/scripts/check_serial_port.py" "$INS_PORT" || \
+                    fail '华测串口不可独占，尚未启动任何硬件进程'
+            fi
+        else
+            echo '[跳过] 惯导已禁用：不检查串口或设置惯导权限（--with-ins恢复）'
         fi
         [[ "$(cat "/sys/class/net/$LIDAR_IFACE/carrier" 2>/dev/null || true)" == 1 ]] || {
             fail "M1 网口未连接：$LIDAR_IFACE";
@@ -409,8 +422,10 @@ if [[ -n "${RUN_DIR:-}" ]]; then
     printf '%s\n' "$MODULE_JSON" > "$RUN_DIR/configs/module_config_manifest.json"
     SNAPSHOT_ARGS=()
     if [[ "$BRAKE_BENCH" == 0 ]]; then
-        SNAPSHOT_ARGS=("camera_lidar=$CALIBRATION" "base_to_zed=$BASE_TO_ZED"
-            "chcnav_bridge=$CHC_WS/src/chcnav/config/chcnav_fsd_bridge.yaml")
+        SNAPSHOT_ARGS=("camera_lidar=$CALIBRATION" "base_to_zed=$BASE_TO_ZED")
+        if [[ "$DISABLE_INS" == 0 ]]; then
+            SNAPSHOT_ARGS+=("chcnav_bridge=$CHC_WS/src/chcnav/config/chcnav_fsd_bridge.yaml")
+        fi
     fi
     /usr/bin/python3 "$ROOT/tools/snapshot_run_configs.py" "$RUN_DIR/configs/module_config_manifest.json" "$RUN_DIR/configs" \
         "${SNAPSHOT_ARGS[@]}" \
@@ -439,13 +454,19 @@ build_workspaces() {
         report_ok 'FSD 算法包构建完成'
         return
     fi
-    (cd "$CHC_WS" && colcon build --packages-select msg_interfaces chcnav \
+    local chc_packages=(msg_interfaces)
+    [[ "$DISABLE_INS" == 1 ]] || chc_packages+=(chcnav)
+    (cd "$CHC_WS" && colcon build --packages-select "${chc_packages[@]}" \
         --cmake-clean-cache --cmake-args \
         -DPython3_EXECUTABLE=/usr/bin/python3 -DPYTHON_EXECUTABLE=/usr/bin/python3 \
         -DPYTHON_INCLUDE_DIR=/usr/include/python3.10 \
         -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.10.so \
         -DPYTHON_INSTALL_DIR=lib/python3.10/site-packages)
-    report_ok '华测驱动与消息包构建完成'
+    if [[ "$DISABLE_INS" == 0 ]]; then
+        report_ok '华测驱动与消息包构建完成'
+    else
+        echo '[跳过] 惯导驱动构建：仅保留其他节点依赖的msg_interfaces消息包'
+    fi
     set +u
     source "$CHC_WS/install/setup.bash"
     set -u
@@ -649,8 +670,10 @@ wait_independent_sensor_topics() {
     probes+=("$!")
     (trap - EXIT ERR INT TERM; TOPIC_CHECK_WORKER=1 wait_topic "$IMAGE_TOPIC" 20 'ZED 相机图像' perception_drivers) &
     probes+=("$!")
-    (trap - EXIT ERR INT TERM; TOPIC_CHECK_WORKER=1 wait_topic "$INS_TOPIC" 20 '华测惯导输出' chcnav) &
-    probes+=("$!")
+    if [[ "$DISABLE_INS" == 0 ]]; then
+        (trap - EXIT ERR INT TERM; TOPIC_CHECK_WORKER=1 wait_topic "$INS_TOPIC" 20 '华测惯导输出' chcnav) &
+        probes+=("$!")
+    fi
     for pid in "${probes[@]}"; do
         wait "$pid" || failed=1
     done
@@ -707,7 +730,10 @@ reconnect_can_bridge() {
 
 reconnect_can_bridge
 if [[ "$BRAKE_BENCH" == 0 ]]; then
-    if [[ "$REUSE_INS" == 1 ]]; then
+    if [[ "$DISABLE_INS" == 1 ]]; then
+        echo '[跳过] 惯导已禁用：不启动或复用华测驱动，不等待惯导数据（--with-ins恢复）'
+        echo '[警告] 无惯导时定位可能无输出；本次跳过IMU自检，其他设备检查、GNSS和发车门控仍有效'
+    elif [[ "$REUSE_INS" == 1 ]]; then
         report_ok '复用外部华测链路；将检查惯导输出话题'
     else
         if [[ "${FSD_INS_DIAGNOSTICS:-1}" == 1 ]]; then
@@ -740,7 +766,7 @@ if [[ "$BRAKE_BENCH" == 0 ]]; then
         wait_topic "$LIDAR_TOPIC" 20 'M1 激光雷达数据' perception_drivers
         wait_topic "$IMAGE_TOPIC" 20 'ZED 相机图像' perception_drivers
         wait_topic "$FUSION_TOPIC" 20 '检测融合输出' perception
-        if [[ "$SENSOR_ONLY" == 0 || "$REUSE_INS" == 1 ]]; then
+        if [[ "$DISABLE_INS" == 0 && ( "$SENSOR_ONLY" == 0 || "$REUSE_INS" == 1 ) ]]; then
             wait_topic "$INS_TOPIC" 20 '华测惯导输出' chcnav
         fi
     fi
@@ -751,7 +777,11 @@ if [[ "$BRAKE_BENCH" == 0 ]]; then
             --params-file "$FSD_WS/src/localization/localization_manager/config/ekf.yaml" \
             -p "debug_out_file:=$FSD_MODULES_DIR/localization/ekf_debug.txt"
         start_group localization_manager ros2 run localization_manager localization_manager_node
-        wait_topic /localization/pose 20 '定位输出' ekf localization_manager chcnav
+        if [[ "$DISABLE_INS" == 0 ]]; then
+            wait_topic /localization/pose 20 '定位输出' ekf localization_manager chcnav
+        else
+            echo '[跳过] 定位首帧检查：惯导已禁用，不将定位标为通过'
+        fi
         start_group cone_map_builder ros2 run cone_map_builder cone_map_builder_node --ros-args \
             --params-file "$FSD_WS/src/mapping/cone_map_builder/config/cone_map_builder.yaml" \
             -p "map_save_path:=$RUN_DIR/artifacts/cone_map.yaml" \
@@ -780,9 +810,14 @@ if [[ "$SENSOR_ONLY" == 0 ]]; then
     start_group can_interface ros2 run can_interface can_interface_node --ros-args \
         --params-file "$CAN_CONFIG" "${CAN_ARGS[@]}" "${BENCH_ARGS[@]}" \
         -p "receive_only:=$([[ "$MANUAL_RECORD" == 1 ]] && echo true || echo false)"
+    MISSION_INS_ARGS=()
+    if [[ "$DISABLE_INS" == 1 ]]; then
+        MISSION_INS_ARGS=(-p check_imu:=false)
+        echo '[跳过] 任务机IMU心跳自检：--no-ins仅本次覆盖check_imu=false；--with-ins恢复配置值'
+    fi
     start_group mission_manager ros2 run mission_manager mission_manager_node --ros-args \
         --params-file "$FSD_WS/src/system/mission_manager/config/mission_manager.yaml" "${BENCH_ARGS[@]}" \
-        -p "manual_record_mode:=$([[ "$MANUAL_RECORD" == 1 ]] && echo true || echo false)"
+        -p "manual_record_mode:=$([[ "$MANUAL_RECORD" == 1 ]] && echo true || echo false)" "${MISSION_INS_ARGS[@]}"
     wait_topic /system/mission_state 15 '任务状态广播' mission_manager
 fi
 
@@ -798,7 +833,9 @@ with open(sys.argv[1], encoding='utf-8') as stream:
 settings['fixed_frame'] = settings['target_frame'] = 'rslidar'
 for key in ('cone_map', 'centerline', 'final_waypoints', 'pose', 'velocity',
             'control_target', 'map_markers', 'centerline_markers',
-            'path_markers', 'trajectory_markers'):
+            'path_markers', 'trajectory_markers', 'mission', 'command',
+            'inspection', 'localization_ready', 'localization_confidence',
+            'global_ready', 'path_confidence'):
     settings['topics'][key] = ''
 with open(sys.argv[2], 'w', encoding='utf-8') as stream:
     yaml.safe_dump(settings, stream, sort_keys=False)

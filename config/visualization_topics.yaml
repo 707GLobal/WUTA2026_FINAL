@@ -22,3 +22,12 @@ topics:
   pose: /localization/pose
   velocity: /chcnav/velocity
   odometry: /localization/odometry
+  mission: /system/mission_state
+  command: /control/command
+  fusion_status: /perception/fusion/status
+  inspection: /system/devices_inspection
+  localization_ready: /system/localization_ready
+  localization_confidence: /system/localization_confidence
+  global_ready: /planning/global_centerline_ready
+  path_confidence: /planning/path_confidence
+  emergency: /system/emergency

@@ -1,4 +1,7 @@
 Panels:
+- Class: fsd_rviz_plugins/DiagnosticsPanel
+  Name: FSD diagnostics
+  CoordinateFrame: 0
 - Class: rviz_common/Displays
   Help Height: 40
   Name: Displays
