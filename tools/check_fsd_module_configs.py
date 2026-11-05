@@ -35,7 +35,11 @@ def configuration_files(controller=None,can=None,calibration=None,base_to_zed=No
 def validate_brake_bench(controller, check_limit=True):
     config=controller['acceleration']
     values=config.get('bench_brake', {})
-    for name,default,positive in [('delay_sec',5.0,False),('hold_sec',10.0,True),('opening',0.5,True)]:
+    pre_drive=values.get('pre_drive_opening',0.05)
+    if (not isinstance(pre_drive,(int,float)) or isinstance(pre_drive,bool) or
+        not math.isfinite(pre_drive) or not 0<=pre_drive<=0.05):
+        raise ValueError('acceleration.bench_brake.pre_drive_opening必须为0～0.05的有限数值')
+    for name,default,positive in [('delay_sec',5.0,False),('inter_stage_delay_sec',3.0,False),('hold_sec',10.0,True),('opening',0.5,True)]:
         value=values.get(name,default)
         if not isinstance(value,(int,float)) or isinstance(value,bool) or not math.isfinite(value) or (value<=0 if positive else value<0):
             raise ValueError('acceleration.bench_brake.'+name+'数值无效')

@@ -1,5 +1,12 @@
 # 当前核心 ROS 与 CAN 接口
 
+## 测试路径地图增量接口（2026-11-05）
+
+现有fsd_mission_review新增订阅`/localization/pose`（geometry_msgs/PoseStamped，Reliable/Volatile/depth1000），其他驾驶话题/生产者保持不变。观察历史schema 2增加pose和plan_invalidated事件，schema 1仍可回放。标准pose和原始惯导独立保存，不以任何一路替代另一条权威定位出口。
+
+新增`/mission_review/{localization,current,planned_history}`，类型均为visualization_msgs/MarkerArray，Reliable/Transient Local/depth1，分别是标准定位轨迹、当前位置和历史路径版本。原`/mission_review/planned`显示当前有效最终路径的点线，空Lane用DELETEALL清除当前图层、历史保留。全部Marker仍在map帧，按采样TF转换后存储；历史显示时间为零，原RViz Fixed Frame和视角不变，不生产TF。显示默认50ms，接收样本不按此频率抽样；断流/跳变/时间回退只断开显示连线。输出文件及查看方法见[test_maps](../test_maps/README.md)。
+
+> 当前临时状态（2026-11-01）：按用户要求，工控机直接发送给制动电机的全部路径已用`WUTA_DIRECT_BRAKE_PAUSED`标记注释停用，包括NMT 0x000、0x603初始化/参数/启动/正常停止/异常和析构发送，以及初始化请求、应答解析和推进。原实现完整保留供恢复；target=2按中性处理。当前台架为真实GO→仅通过0x210请求5%微驱动5秒（可配置0～5%，0恢复中性等待）→50%制动10秒→中性/FINISH，不再等待直接初始化或3秒间隔；0x301心跳和台架超时/按路由限幅/转向归中保护保留。此限制只约束FSD自身，VCU或其他车端节点仍可能自行向电机发送报文。下文直控、双路流程为停用方案记录，以本条为准。未启动硬件。
 
 > 核对：2026-10-13（同步10月12日工作）。以下是 `start_full_fsd.sh` 全车模式的核心契约，非全部调试话题枚举。话题可配置或 remap 时，以实际启动配置为准。
 
@@ -94,7 +101,7 @@
 | VCU 输入 | 0x501（1281） | 任务模式；当前模式周期重发，供晚启动任务机同步 |
 | RES 输入 | 0x1E4（484） | 首字节0x13 GO、0x10急停、0x11上线；GO只在状态变化沿发布 |
 
-CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧，之后按最近一次控制消息发送，不包含命令超时保护或标定表映射。最大转角读取 `steer.max_steer_angle`，总启动检查与控制器的 `vehicle.max_steer_angle` 核对。当前 CAN 车速发布代码未启用，闭环速度来自华测。
+CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧，正常模式之后按最近一次控制消息发送，不包含通用命令超时保护或标定表映射；台架模式额外执行下述500ms路由/Command/任务状态新鲜度检查。最大转角读取 `steer.max_steer_angle`，总启动检查与控制器的 `vehicle.max_steer_angle` 核对。当前 CAN 车速发布代码未启用，闭环速度来自华测。
 
 标定与报文格式以 `system/can_interface/config/can_interface.yaml`、`src/can_interface.cpp` 及 `docs_for_can` 协议为准；ZLG 桥提供硬件传输，不负责算法任务状态。ROS 归零不等同于已经验证硬件制动。
 
@@ -138,7 +145,17 @@ ZLG桥将当前会话的有效VCU模式写到`/run/zlgcan_bridge`。CAN接口默
 
 ### 固定路径的启动参考（2026-10-13）
 
-`path_generator`的acceleration/skidpad/ebs均支持`anchor_frame=start_pose|map`。start_pose是规划内部冻结的二维参考，不新增TF边或pose发布者；YAML的X前、Y左、yaw=0沿启动车头。最终Lane和planned日志保持map，路径速度仍为沿路径目标速度。公共华测ENU/车体速度及map→odom同原点关系不变。Trackdrive使用真实map锥桶中心线，不再次应用启动旋转。
+`path_generator`的acceleration/skidpad/ebs均支持`anchor_frame=start_pose|map`。start_pose是规划内部冻结的二维参考，不新增TF边或pose发布者；YAML的X前、Y左、yaw=0沿启动车头；直线加速启用use_cone_direction时，X方向改为锥桶拟合的前向切线，起点投影到中心线。最终Lane和planned日志保持map，路径速度仍为沿路径目标速度。公共华测ENU/车体速度及map→odom同原点关系不变。Trackdrive使用真实map锥桶中心线，不再次应用启动旋转。
+
+### RViz只读诊断与坐标表（2026-10-14）
+
+根启动脚本的bridge模式默认加载`fsd_rviz_plugins/DiagnosticsPanel`。显示桥消费上表算法结果及MissionState、DevicesInspection、Command、融合JSON诊断、定位ready/confidence、全局中心线ready/path_confidence和急停事件；只发布`/fsd_visualization/*`显示结果。地图输入为`wuta_msgs/ConeMap`，不是ConeArray。默认速度来自`/chcnav/velocity`，表示车体运动速度而非驱动轮速。
+
+`/fsd_visualization/status`（std_msgs/String，Best Effort/Volatile/depth1）保留速度/轨迹/输入墙钟帧龄字段，新增`schema_version=1`、`stale_seconds`、`streams`和`cone_coordinates`。streams每项含label/topic/state/age_s及实际消息摘要；有header的输入还提供stamp_ns/frame/sample_age_s。状态包括未启用、未收到、空结果、正常、超时缓存、时间戳超前及无效数据；显示超时阈值不是控制器或任务机的驾驶门控。锁存输入按生产者QoS订阅；急停单次事件显示末次锁存值，不按普通周期消息判定过期。
+
+坐标表按融合消息header保留原始XYZ；可切换base_link，使用同一采样时间TF且不回退最新TF。TF不可用时显示原因、车体坐标为空，原始坐标仍可查看；表格序号仅为本帧数组索引，非跨帧ID，confidence不是位置误差。坐标表采样纳秒以字符串传输，避免Qt JSON浮点精度丢失。诊断面板独立监测显示桥墙钟断流（2秒），防止桥退出后旧值仍显示正常。
+
+MissionState.description提供真实门控字段，缺失显示未知；面板不生成第二套发车结论。Command开度正/负/零仅标记驱动请求/制动请求/中性，不推断实际电机状态。sensor-only关闭未启动的任务、建图、规划、控制和定位诊断输入，保留感知与真实CAN急停事件；不伪造TF或车辆数据。
 
 ## 独立显示部署补充（2026-10-17）
 
@@ -200,7 +217,7 @@ MissionState新增`bool brake_bench_mode`，由mission_manager发布；任务机
 
 台架仍消费真实`/system/mission_mode_cmd`的acceleration与之后的`/system/start_command` GO，状态为IDLE→READY→EXPLORE→FINISH。description增加`brake_bench`与`sensor_checks_exempt`诊断，台架wait使用`acceleration_mode,go`；原始gnss_status/lidar_ready/localization_ready继续如实报告。DevicesInspection.ok在台架表示豁免传感器后的台架检查结论，不是传感器在线证明；急停态为false。
 
-原`/control/command`在台架的speed=0、angle=0，throttle_brake在5秒等待时为0、随后10秒为-0.5、结束持续0。CAN 0x210 Signal1分别编码32767(0x7FFF)/16383(0x3FFF)，Signal2始终32767；控制帧周期100ms。Command或台架活动MissionState接收年龄超过500ms、自检失败或状态不再活动时输出中性。正常模式协议不变。控制器急停订阅改为Reliable/Transient Local/depth1，与原急停发布端一致，重启可收到锁存急停。
+原`/control/command`在台架的speed=0、angle=0；当前默认先以target=3请求+0.05持续5秒，再以target=1请求-0.5持续10秒，结束target=0并持续中性。CAN 0x210 Signal1依次为34405(0x8665)、16383(0x3FFF)、32767(0x7FFF)，Signal2始终32767；控制帧周期100ms，另有输入回调触发发送。路由、Command或台架活动MissionState接收年龄超过500ms、自检失败、RES急停或状态不再活动时中性。正常模式协议不变。控制器急停订阅为Reliable/Transient Local/depth1，与原急停发布端一致，重启可收到锁存急停。
 
 ## 人工驾驶记录接口（2026-10-22）
 
@@ -208,14 +225,96 @@ MissionState新增`bool brake_bench_mode`，由mission_manager发布；任务机
 
 `mission_manager.manual_record_mode=true` 时忽略选档、GO、完成事件，不激活驾驶任务；保留真实设备自检、急停和标准定位消费，正式圈数保持未激活状态。MissionState.description增加 `manual_record=0|1`；人工记录正常时 `wait=manual_record`，故障时仍为急停诊断。此状态表示采集用途，不能作为自动驾驶就绪或发车许可。原 path_generator 收到有效定位即写实际轨迹；无控制指令时原cmd_*及cmd时间列为nan，无活动任务则规划文件可仅有表头。无新增ROS发布者或原始传感器录制话题。
 
-### 台架制动电机前置CAN接口（2026-10-22）
+### 历史：台架制动电机前置CAN接口（2026-10-22，已停用）
 
-> 2026-10-23当前状态：按用户要求，parseResFrame中调用prepareBrakeBench的入口已暂时注释，以下0x603前置流程仅作历史记录，当前不会执行。GO直接进入原任务机，台架仍按原控制器参数等待5秒、以50%制动10秒、释放中性；0x210和0x301保持，FSD不再额外发送0x603。
+> 本节仅记录历史方案，不是当前启用接口。当前初始化请求/结果接口和直接电机协议均被编译排除；生效行为见“台架制动前微驱动”。
+
+> 2026-10-23早期临时状态（已由下述延时后初始化方案替代）：按用户要求，parseResFrame中调用prepareBrakeBench的入口已暂时注释，以下0x603前置流程仅作历史记录，当前不会执行。GO直接进入原任务机，台架仍按原控制器参数等待5秒、以50%制动10秒、释放中性；0x210和0x301保持，FSD不再额外发送0x603。
 
 
 只在brake_bench_mode=true时，can_interface收到0x1E4首字节0x13的新变化沿，且权威任务状态为新鲜的acceleration/READY、台架自检ok，才向标准ID0x603写入6帧，DLC8，依次为 `2B 71 60 00 18 FC FF FF` 与 `2B 40 60 00 1F 00 00 00` 交替三组。六次SocketCAN写入成功后才发布原/system/start_command；无新ROS话题或消息字段。原任务机决定EXPLORE，原controller随后执行5秒等待和10秒制动。任一写入失败停止序列、不发布GO、发布原/system/emergency=true；无自动重试、无SDO应答确认。正常模式和receive_only不发送这些前置帧。
 
 无线0.7.10：新增控制请求cli.cycle_mode，含expected_mode（normal/brake_bench/manual_record）、原boot/过期时间/源时间与请求ID；Linux原Manager串行执行M键循环，运行/清理及sensor-only/build-only会话拒绝。选中模式变化则拒绝迟到请求，不自动重试新ID。CLI心跳与cli.status增加selected_mode、active_mode，后者沿用run_log模式hardware/brake_bench/manual_record/sensor_only或null；PC /radio/cli/control新增mode_display、display_state_with_mode，保留原display_state/phase及源时间。请求及回复/ACK沿用高优先级，不新增ROS话题、驾驶指令或模块配置写入。
+
+### 历史：台架延时后初始化接口（2026-10-23，已停用）
+
+> 本节仅记录历史方案，不是当前启用接口。当前初始化请求/结果接口和直接电机协议均被编译排除；生效行为见“台架制动前微驱动”。
+
+| 话题 | 类型 | 唯一生产者 → 消费者 | 语义 |
+| --- | --- | --- | --- |
+| `/control/brake_bench/initialize` | std_msgs/Bool | controller → can_interface | 真实GO进入EXPLORE且等待5秒后，true请求本次初始化 |
+| `/can/brake_bench/initialized` | std_msgs/Bool | can_interface → controller | true表示SDO写入及模式/状态回读通过；false表示失败 |
+
+两接口仅在brake_bench_mode=true时创建，Reliable/Volatile/depth10；每次进程运行只尝试一次，无自动重试。GO仍直接交原任务机。初始化期间0x210纵向及转向中性；成功后才允许原Command的负开度，10秒保持从成功结果开始计算。controller等待结果超过8秒锁定中性。
+
+NMT使用标准ID0x000、DLC2、`01 03`，仅启动节点3；随后标准ID0x603、DLC8依次执行下列请求，监听0x583：
+
+| 步骤 | 请求数据（默认参数） | 作用 |
+| --- | --- | --- |
+| 1 | `2B 40 60 00 01 00 00 00` | 初始化设备 |
+| 2 | `2B 71 60 00 00 00 00 00` | 清零目标转矩，防止继承旧目标 |
+| 3 | `2F 60 60 00 04 00 00 00` | 转矩模式4 |
+| 4 | `23 81 60 00 0A 00 00 00` | 目标速度原始值10 |
+| 5 | `2B 87 60 00 E8 03 00 00` | 转矩斜率1000‰/s |
+| 6 | `2B 40 60 00 03 00 00 00` | 打开刹车 |
+| 7 | `2B 40 60 00 0F 00 00 00` | 使能电机 |
+| 8 | `2B 40 60 00 1F 00 00 00` | 启动，目标转矩仍为0 |
+| 9 | `40 61 60 00 00 00 00 00` | 回读模式，要求4F及值4 |
+| 10 | `40 41 60 00 00 00 00 00` | 回读状态，要求4B、使能bit2=1、故障bit3=0、暂停bit8=0 |
+
+各写请求要求匹配index/subindex的0x60应答；每步应答超时500ms，应答后至少间隔20ms发送下一步。发送失败、SDO abort/格式异常、模式/状态不符或初始化期间输入失效，停止序列、回报false并发布原急停事件，0x210中性。手册第325页示例参数用于配置，目标转矩固定0，未直接发送示例500‰或历史负转矩。0x210仍由VCU解释开度，最终制动力及释放须由硬件验收。其他控制器若同时发送同节点SDO，可能覆盖设置，且同一对象的应答无法唯一归属发送者，本实现不能排除这种总线竞争。
+
+### 历史：台架电机直控（2026-10-23，已停用）
+
+> 本节仅记录历史方案，不是当前启用接口。当前初始化请求/结果接口和直接电机协议均被编译排除；生效行为见“台架制动前微驱动”。
+
+该历史版本恢复过初始化请求/结果话题，并保持初始化NMT及10步SDO；结果成功后controller继续发布中性3秒，再发布原Command负开度10秒。can_interface在台架模式将负开度转换为6071额定转矩千分比，0x210纵向/转向始终0x7FFF，不再向VCU请求制动。50%是额定转矩请求，不是实测制动力/行程比例。
+
+| 阶段 | ID / DLC | 数据 |
+| --- | --- | --- |
+| 初始化确认后再等3秒，发送指定原始转矩报文 | 0x603 / 8 | `2B 71 60 00 17 FC FF FF` |
+| 前帧成功应答后启动 | 0x603 / 8 | `2B 40 60 00 1F 00 00 00` |
+| 10秒制动请求结束，清零转矩 | 0x603 / 8 | `2B 71 60 00 00 00 00 00` |
+| 前帧成功应答后暂停 | 0x603 / 8 | `2B 40 60 00 1F 01 00 00` |
+
+以上沿原SDO事务出口逐帧确认0x583、500ms超时、应答后20ms间隔。保持10秒从controller发出负Command开始，包含SDO应答和转矩斜坡时间，不等价于实测50%转矩平台持续10秒。一次进程只执行一次电机制动；输入失效/任务结束触发清零和暂停，释放事务不受FINISH/失联门控阻止。SDO失败沿原急停事件退出，并尽力直发清零+暂停；正常析构也尽力直发，不能保证断电/强杀/总线故障下送达或机械复位。原同节点多发送者覆盖限制仍适用。
+
+### 保留源码：最小配置/启动序列（2026-10-23，当前编译排除）
+
+> 本节仅记录历史方案，不是当前启用接口。当前初始化请求/结果接口和直接电机协议均被编译排除；生效行为见“台架制动前微驱动”。
+
+| 顺序 | CAN ID | DLC | 原始数据 | 下一帧最小间隔 |
+| --- | --- | --- | --- | --- |
+| 1 | 0x000 | 2 | `01 00` | 20ms |
+| 2 | 0x603 | 8 | `2B 40 60 00 01 00 00 00` | 20ms |
+| 3 | 0x603 | 8 | `2B 40 60 00 03 00 00 00` | 20ms |
+| 4 | 0x603 | 8 | `2B 40 60 00 0F 00 00 00` | 20ms |
+| 5 | 0x603 | 8 | `2F 60 60 00 04 00 00 00` | 2ms |
+| 6 | 0x603 | 8 | `23 81 60 00 02 00 00 00` | 20ms |
+| 7 | 0x603 | 8 | `2B 71 60 00 E8 03 00 00` | 20ms |
+| 8 | 0x603 | 8 | `2B 87 60 00 E8 03 00 00` | 成功应答后3秒，用户确认的延时例外 |
+| 9 | 0x603 | 8 | `2B 40 60 00 EF 00 00 00` | 启动后保持原10秒请求 |
+
+GO后5秒开始。/can/brake_bench/initialized=true现在表示第8帧配置写入应答完成；controller收到后等待post_init_delay_sec=3，原负Command仅触发第9帧，不能重复第7帧。无初始化清零、无回读、无比例换算或报文参数覆盖。速度02按原始值保留，不能沿最小代码注释直接宣称1rps；转矩+1000也不宣称50%额定转矩。NMT广播影响范围同原最小代码，未改为节点3单播。
+
+SDO写入仍逐帧等待0x583、匹配index/subindex的60成功应答，500ms超时/abort失败沿急停退出。间隔从请求发送时刻计算，需同时满足应答到达及最小间隔；台架接收轮询不大于2ms，普通Linux调度不保证精确2ms。已删除初始化profile_velocity/torque_slope配置覆盖项。结束/异常的清零与暂停在配置/启动序列之外，报文沿现有停止逻辑保留，正常序列不插入。
+
+### 历史：分时双路台架（2026-10-23，已停用）
+
+> 本节仅记录历史方案，不是当前启用接口。当前初始化请求/结果接口和直接电机协议均被编译排除；生效行为见“台架制动前微驱动”。
+
+新增`/control/brake_bench/target`：std_msgs/UInt8，controller唯一发布、can_interface消费，Reliable/Volatile/depth10，仅台架创建。值0=双方中性/配置阶段，1=仅VCU，2=仅直接电机。随每次台架Command发布更新；目标切换时CAN立即清除缓存Command及其seen标志，新Command到达前中性。目标/Command/任务状态任一超过500ms则两路均无制动请求，直接电机已启动时清零+暂停。正常Command生产者及任务机所有权不变。
+
+VCU阶段不要求FSD电机初始化成功，只要求原任务状态/自检及新鲜目标/Command，负0.5编码0x210 Signal1=0x3FFF，横向0x7FFF。此时FSD不发送直接电机配置/启动帧。VCU释放后目标切0，0x210恢复0x7FFF，再按原最小代码执行电机配置；此前表格最终EF的触发条件更新为：配置确认成功且从VCU释放起inter_stage_delay_sec=3到期。电机目标2阶段0x210保持0x7FFF，负Command仅触发EF，不重复转矩帧。各路请求保持10秒，结束同时归中性。
+
+新参数`acceleration.bench_brake.inter_stage_delay_sec=3.0`替代post_init_delay_sec，其计时从VCU释放/配置请求发出开始；配置过慢不会跳过确认或缩短后续10秒保持。其他源若同时向电机发送SDO，仍可能覆盖FSD设置，分时仅约束本进程的发送出口。
+
+
+### 直线加速双侧方向（2026-10-25）
+
+不新增ROS话题或消息。boundary_detector在MISSION_ACCELERATION下输出`/planning/centerline`（map系、两个有序点；从第一点指向第二点为前进方向，速度字段为0，由规划配置速度）。无效或稳定次数不足时发布空Lane，供规划清除候选方向。`/planning/path_confidence`为拟合内点比例/残差评分；`/planning/global_centerline_ready`保持false，不代表赛道闭环。`/planning/centerline_viz`同时显示红/蓝边界、中心线和前向箭头。
+
+path_generator在任务活动后使用新鲜且稳定的中心线一次生成并冻结`/planning/final_waypoints`和planned记录；没有可信方向则等待，发布空final_waypoints清除控制器缓存，不发布有效加速路径。执行中传感器缺失不改写已冻结路径；传感器失效/急停仍由既有任务机、控制器负责。减速/停止的纵向距离仍是path_generator的acceleration.anchor配置，定位与测距职责不变，不新增锥桶终点判据。
 
 ### 感知链路 QoS（2026-10-25）
 
@@ -234,3 +333,15 @@ MissionState新增`bool brake_bench_mode`，由mission_manager发布；任务机
 检测结果和深度适配输出保留原Reliable/depth10发布。惯导兼容订阅、其他显示Marker及急停Transient Local锁存契约不变。RViz配置生成器覆盖旧模板的原始点云与标注图QoS。
 
 Best Effort发布者不能满足这些Reliable订阅，仿真输入也须配套提供Reliable。更新后须重启相关算法、CLI与显示，旧Best Effort标注图发布进程不能满足新显示订阅。原最新图像覆盖、检测/深度20帧缓存、10 ms匹配容差与50 ms等待不变；Reliable减少传输丢样，但不保证算法过载时每帧均被处理。
+
+## 独立复盘只读接口（2026-10-31）
+
+节点fsd_mission_review订阅/localization/pose（geometry_msgs/PoseStamped）、/chcnav/odometry（nav_msgs/Odometry）、/chcnav/velocity（geometry_msgs/TwistStamped）、/planning/final_waypoints（autoware_msgs/Lane）、/control/target_viz（visualization_msgs/MarkerArray，仅pp_target ADD）、/system/mission_state（wuta_msgs/MissionState）；均Reliable/Volatile/depth1000，保留现有发送端契约。/system/emergency订阅Reliable/Transient Local/depth1。发送端和控制消息不修改；目标Marker由现有控制器在有订阅者时生成，因此须在GO之前启动采集。对位姿仅使用采样时间TF→map，不生成TF或第二份标准pose。
+
+输出/mission_review/{actual,planned,planned_history,localization,current,targets,label}均为visualization_msgs/MarkerArray，/mission_review/status为std_msgs/String，统一Reliable/Transient Local/depth1。每次几何快照自带DELETEALL和完整ADD集合，帧为map，时间零供离线历史图层使用。status包含segment、phase、reason、样本数量、规划版本数、warnings、max_observed_gap_s、pending_transforms。结束条件仅标记复盘状态；frozen不代表任务机FINISH，replay无实车数据订阅。当前JSONL schema=2，兼容schema 1回放；数据保存于工作空间test_maps独占采集目录，来源运行目录仅保留采集日志和ready指针，不变更已有轨迹CSV。旧Lane与待TF目标点的已知时序问题见[test_maps限制说明](../test_maps/README.md#已知限制2026-11-05核对)。
+
+## 台架制动前微驱动（2026-11-01，覆盖旧无正驱动约束）
+
+现有`/control/brake_bench/target`（std_msgs/UInt8）扩展值3=仅VCU制动前微驱动；值1=仅VCU负制动，0/停用的2/未知值保持中性。`/control/command`的消息定义、QoS与正驱动/负制动约定不变，台架speed=0/angle=0，throttle_brake前delay_sec阶段为pre_drive_opening，随后hold_sec为-opening，结束为0。控制器与CAN共用小正开度范围0～0.05，控制器拒绝非法参数，CAN仅目标3限幅允许正值；目标1遇正值归中性。路由切换先清缓存，新Command到达前可出现保护性中性帧。
+
+默认GO→5%微驱动5秒→50%制动10秒→中性/mission_complete→FINISH；0.0参数恢复原中性等待。Signal1大端5%=86 65、中性7F FF、50%制动3F FF。所有原任务新鲜度/自检/RES/有限值门控不放宽；无正转向、无0x000/0x603直接电机发送。原正常驾驶协议与MissionState所有权不变。

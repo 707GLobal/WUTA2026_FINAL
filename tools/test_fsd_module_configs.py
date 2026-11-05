@@ -94,3 +94,20 @@ def test_legacy_pid_output_limit_is_not_silently_ignored(tmp_path):
     f=tmp_path/'controller.yaml';f.write_text(yaml.safe_dump({'controller_node':{'ros__parameters':base}}))
     with pytest.raises(ValueError,match='skidpad.pid.output_limit'):
         manifest(controller=f)
+
+@pytest.mark.parametrize('opening', [-.001, .051, True, '0.05', float('nan'), float('inf')])
+def test_invalid_bench_pre_drive_rejected(opening):
+    from check_fsd_module_configs import validate_brake_bench
+    config = parameters(SRC/'control/controller/config/controller.yaml')
+    config['acceleration']['bench_brake']['pre_drive_opening'] = opening
+    with pytest.raises(ValueError, match='pre_drive_opening'):
+        validate_brake_bench(config)
+
+@pytest.mark.parametrize('opening', [0., .01, .05])
+def test_bench_pre_drive_range_and_legacy_default(opening):
+    from check_fsd_module_configs import validate_brake_bench
+    config = parameters(SRC/'control/controller/config/controller.yaml')
+    config['acceleration']['bench_brake']['pre_drive_opening'] = opening
+    validate_brake_bench(config)
+    del config['acceleration']['bench_brake']['pre_drive_opening']
+    validate_brake_bench(config)

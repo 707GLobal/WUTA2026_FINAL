@@ -1,5 +1,8 @@
 # 按功能定位代码
 
+2026-11-05测试路径地图：显示子模块`src/fsd_visualization/fsd_visualization/mission_review.py`接收最终Lane/标准pose并发布独立点线图层；同目录`mission_review_history.py`维护路径版本/定位及新旧JSONL回放，`mission_review_map.py`负责断线、独占采集目录和原子SVG导出。参数在该包`config/mission_review.yaml`，图层在`config/{fsd,mission_review}.rviz`，原坐标系/视角不变。根`start_full_fsd.sh`正常模式自动启动采集，输出集中到`test_maps/`，原CSV不变。验证入口为显示子模块`tests/test_mission_review{,_ros}.py`；[使用说明](../test_maps/README.md)。
+
+> 当前临时状态（2026-11-01）：按用户要求，工控机直接发送给制动电机的全部路径已用`WUTA_DIRECT_BRAKE_PAUSED`标记注释停用，包括NMT 0x000、0x603初始化/参数/启动/正常停止/异常和析构发送，以及初始化请求、应答解析和推进。原实现完整保留供恢复；target=2按中性处理。当前台架为真实GO→仅通过0x210请求5%微驱动5秒（可配置0～5%，0恢复中性等待）→50%制动10秒→中性/FINISH，不再等待直接初始化或3秒间隔；0x301心跳和台架超时/按路由限幅/转向归中保护保留。此限制只约束FSD自身，VCU或其他车端节点仍可能自行向电机发送报文。下文直控、双路流程为停用方案记录，以本条为准。未启动硬件。
 
 > 表内 FSD 路径均相对 `WUTA-FSD/ros2_ws/src/`，2026-10-13复核，同步10月12日工作树。
 
@@ -12,7 +15,7 @@
 | 相机雷达后融合 | `perception/detection_fusion/src/detection_fusion_node_cpp.cpp`、`detection_fusion/{node,core,calibration}.py` | `config/fusion.yaml`；`test/test_core.py`、`test/test_calibration.py` |
 | 实车感知启动 | `perception/detection_fusion/launch/fusion_modules_hardware.launch.py` | 读取各模块 config；旧 `fusion_hardware.launch.py` 是另一入口，不能混用参数来源 |
 | 锥桶建图 | `mapping/cone_map_builder/src/cone_map_builder.cpp`、`include/cone_map_builder/cone_map_builder.hpp` | `config/cone_map_builder.yaml` |
-| 边界 / 中心线 | `planning/boundary_detector/src/boundary_detector_node.cpp`、`thirdparty/pathplanning` | `config/boundary_detector.yaml` |
+| 边界 / 中心线 | `planning/boundary_detector/src/boundary_detector_node.cpp`（含processAccelerationMap）、`include/boundary_detector/acceleration_lines.hpp`（同包）、`thirdparty/pathplanning` | `config/boundary_detector.yaml` |
 | 任务路径 / 速度 / 轨迹记录 | `planning/path_generator/src/path_generator_node.cpp` | `config/path_generator.yaml`；记录到 `wuta_logs/<赛项>/<YYYYmmdd_HHMMSS>/trajectory/`，分段为 `trajectory/segments/<赛项>/<YYYYmmdd_HHMMSS>_<序号>/` |
 | 横纵向控制 | `control/controller/src/{controller_node,pure_pursuit,twist_filter}.cpp`、`include/controller/speed_pid.hpp` | `config/controller.yaml`；`test/test_speed_pid.cpp` |
 | 定位输出管理 | `localization/localization_manager/src/localization_manager.cpp` | `config/ekf.yaml`；不自主决定赛项定位模式 |
@@ -42,7 +45,8 @@ CLI与无线独立进程联启：`fsd_startup/manager.py:ensure_radio` → `fsd-
 | CAN模式会话缓存 | `zlgcan_bridge/mode_cache.{c,h}`；`system/can_interface/src/mode_cache.cpp`及`mode_cache`配置 |
 | 华测解析和 FSD 桥 | `humble-chcnav-cgi_ros2pkg/src/chcnav/src/chcnav_fsd_bridge/ChcnavFsdBridge.cpp`；`scripts/start_chcnav_fsd.sh`；`config/chcnav_fsd_bridge.yaml` |
 | ZLG 桥 | `zlgcan_bridge/{main,can_side,zlg_side,can_log}.c`；`start_zlg_bridge.sh`、`bridge.yaml`、Makefile |
-| 显示桥 / 布局 | `fsd-visualization-code/src/fsd_visualization/fsd_visualization/{bridge,configuration}.py`；`fsd-visualization-code/src/fsd_visualization/config/{topics.yaml,fsd.rviz}` |
+| 显示桥 / 布局 | `fsd-visualization-code/src/fsd_visualization/fsd_visualization/{bridge,configuration,diagnostics}.py`；`fsd-visualization-code/src/fsd_visualization/config/{topics.yaml,fsd.rviz}` |
+| RViz固定诊断面板 / 融合坐标表 | `fsd-visualization-code/src/fsd_rviz_plugins/src/diagnostics_panel.cpp` | `fsd-visualization-code/tests/test_diagnostics.py`；`tests/gui_smoke.py` |
 | 安全图像插件 | `fsd-visualization-code/src/fsd_rviz_plugins/src/safe_image.cpp` |
 | E22双向无线显示 / Foxglove | `fsd-visualization-code/radio_link/fsd_radio/{ros_sender,geometry,protocol,link,transport,worker,pc_receiver,foxglove_view,cli}.py`；配置 `radio_link/radio.yaml`，部署与测试见 `radio_link/README.md` |
 | 无线必要字段压缩 / 本地样式 | `fsd-visualization-code/radio_link/fsd_radio/essentials.py`；样式 `radio.yaml:foxglove.styles`，编码成本复现 `radio_link/tools/compare_bandwidth.py`，回归 `radio_link/tests/test_essentials.py` |
@@ -130,7 +134,7 @@ Windows exe：radio_link/windows_receiver.py为PC入口/内置与外部配置选
 | CLI M键循环选择/停止后恢复 | `fsd_startup/terminal_ui.py`、`manager.py:cycle_run_profile`；运行期间不可切换 |
 | 台架依赖检查与配置编辑 | `fsd_startup/{checks,runtime_checks,config_store}.py`、`tools/check_fsd_module_configs.py:brake_bench_manifest` |
 | 根启动与停机顺序 | `start_full_fsd.sh --brake-bench`，复用原日志和进程生命周期 |
-| 5秒延时/10秒50%制动/释放 | `control/controller/src/controller_node.cpp:runBrakeBench`、`config/controller.yaml:acceleration.bench_brake`（FSD源码相对路径） |
+| 5秒微驱动/10秒50%制动/中性释放 | `control/controller/src/controller_node.cpp:runBrakeBench`、`config/controller.yaml:acceleration.bench_brake`（FSD源码相对路径） |
 | 选档/GO与传感器豁免 | `system/mission_manager/src/mission_manager.cpp:advanceWhenReady/selfCheckTick`；`common/wuta_msgs/msg/MissionState.msg:brake_bench_mode` |
 | 台架命令超时与中性帧 | `system/can_interface/src/can_interface.cpp:sendControlFrame`及析构；真实CAN协议出口保持 |
 | 离线验证 | `fsd_startup/test_brake_bench.py`、`tools/test_brake_bench_ros.py`、FSD `system/can_interface/test/test_brake_bench_can.cpp` |
@@ -150,9 +154,19 @@ Windows exe：radio_link/windows_receiver.py为PC入口/内置与外部配置选
 
 2026-10-22台架前置0x603：FSD `system/can_interface/src/can_interface.cpp:prepareBrakeBench/parseResFrame`负责A/B交替三组及GO转发顺序；`test/test_brake_bench_prepare.cpp`为内存设备离线验证，覆盖6帧顺序/字节、GO后置、重复GO、未就绪/自检缺失、写失败急停和正常模式无额外发送。
 
-2026-10-23当前状态：`can_interface.cpp:parseResFrame`中`prepareBrakeBench()`调用已临时注释；函数和历史测试源码保留，`brake_bench_prepare` CTest标记DISABLED。当前台架只走原GO→任务机→controller定时→0x210控制链，原0x301心跳保持。
+2026-10-23早期临时状态（已由下述延时后初始化方案替代）：`can_interface.cpp:parseResFrame`中`prepareBrakeBench()`调用已临时注释；函数和历史测试源码保留，`brake_bench_prepare` CTest标记DISABLED。当前台架只走原GO→任务机→controller定时→0x210控制链，原0x301心跳保持。
 
 Foxglove M键适配（0.7.10）：fsd_startup/manager.py:operate(cycle_mode)/cycle_run_profile/publish；control_api.py:execute/status及优先队列。显示radio_link/fsd_radio/cli_control.py转发模式字段、发送expected_mode并派生display_state_with_mode，rpc.py:CONTROL_OPERATIONS加入cli.cycle_mode。foxglove_layout.json的Publish!cli_cycle_mode位于原检查/启动按钮行，原Indicator!cliState消费含模式字段。
+
+历史方案（2026-10-23，当前停用）——延时后初始化：`control/controller/src/controller_node.cpp:runBrakeBench`等待后发布初始化请求并在成功结果后开始保持计时；`system/can_interface/src/can_interface.cpp:startBrakeBenchInitialization/tickBrakeBenchInitialization/brakeBenchInitFrame/parseBrakeBenchSdo`负责NMT、顺序SDO和失败急停，`sendControlFrame`增加初始化成功门控。该历史版本曾使用`config/can_interface.yaml:brake_bench.initialization`；当前配置不提供此项；时序和开度仍由controller.yaml管理。旧prepareBrakeBench实现已替换，历史六帧测试仍DISABLED。
+
+历史方案（当前停用）——直控：controller.yaml `acceleration.bench_brake.post_init_delay_sec=3.0`为新增初始化后等待参数；`runBrakeBench`恢复握手并计算额外等待，`can_interface.cpp:updateBrakeBenchMotor`将Command负开度编码为6071千分比，复用`brakeBenchInitFrame/tickBrakeBenchInitialization/parseBrakeBenchSdo`处理制动/释放SDO；`stopBrakeBenchMotorBestEffort`负责失败和析构清零/暂停。`sendControlFrame`在台架始终发送中性0x210。此句描述历史版本；当前已恢复WUTA_DIRECT_BRAKE_PAUSED编译排除。
+
+保留源码映射（当前编译排除）：can_interface.cpp的brakeBenchInitFrame固定steps[0..6]为七条配置SDO、steps[7]为唯一EF启动；startBrakeBenchInitialization先发01 00/DLC2，parseBrakeBenchSdo在第七条SDO成功后回报配置完成，controller等待3秒后由updateBrakeBenchMotor只触发steps[7]。steps[8..9]仅供结束释放。tickBrakeBenchInitialization按模式帧后2ms、其余20ms的最小间隔和成功应答推进；取消参数覆盖及模式/状态回读。
+
+历史方案（当前停用）——双路：controller.cpp的runBrakeBench先发target=1/负Command保持10秒，再target=0请求配置并等inter_stage_delay_sec，最后target=2/负Command保持10秒；publishBenchCommand同时刷新目标选择。can_interface.cpp的target订阅在切换时清缓存，sendControlFrame仅target=1转发VCU负开度、仅target=2调用电机启动。配置超时及急停出口沿用，初始化字节不变。
+
+可恢复禁用惯导：根`start_full_fsd.sh`的`DISABLE_INS`与`--no-ins/--with-ins`；CLI`manager.py:options_from/permissions`、`checks.py:serial/dependencies`、`runtime_checks.py`同步跳过惯导/定位首帧检查；根入口`MISSION_INS_ARGS`仅在禁用时覆盖任务机`check_imu=false`，恢复读取配置值；恢复命令见[DEPLOYMENT](DEPLOYMENT.md#临时屏蔽惯导与恢复2026-10-25)。
 
 ## 感知 Reliable 实现与验证（2026-10-25）
 
@@ -169,3 +183,17 @@ Foxglove M键适配（0.7.10）：fsd_startup/manager.py:operate(cycle_mode)/cyc
 隔离ROS相机回归覆盖Python/C++深度适配、曝光时间保留、三维估计及YOLO输入/标注图Reliable连接。QoS深度与兼容边界见[ROS_INTERFACE](ROS_INTERFACE.md#感知链路-qos2026-10-25)。
 
 macOS产物：显示.github/workflows/macos-receiver.yml（workflow_dispatch、arm64/x86_64矩阵、Artifacts与可选Release）；radio_link/build_macos.sh、start_macos.command、MACOS_README.md；共享windows_receiver.spec按平台收集串口后端。打包不执行应用或硬件测试，构建信息随包附带。
+
+## 独立任务复盘（2026-10-31）
+
+- 显示子模块`review.sh`：正常模式由根入口自动启动的只读采集入口，也可独立启动；live传入已有运行目录，replay传入保存的JSONL，不依赖自检RViz或启动车辆节点。
+- `src/fsd_visualization/fsd_visualization/mission_review.py`（相对显示子模块）：现有ROS输入、采样TF、最终Marker快照及专用RViz进程。
+- 同目录`mission_review_history.py`：目标点/标准pose/原始惯导位置/规划版本的观察分段与增量journal；急停滑行、断流未确认、JSONL恢复。
+- `src/fsd_visualization/config/mission_review.{yaml,rviz}`：专用输入/收尾设置及定位、惯导、当前/历史规划、目标与状态图层。
+- `tests/test_mission_review{,_ros}.py`：纯记录及隔离ROS消息/TF/晚订阅/回放验证；不操作硬件。
+
+2026-11-01临时停用直发：controller.cpp初始化接口注册及runBrakeBench的直接电机阶段、can_interface.cpp初始化接口/协议实现/推进/析构停止均按WUTA_DIRECT_BRAKE_PAUSED编译排除，配套头文件声明和成员保留在同名注释块中。target订阅当前接受1和3，0/停用的2/未知值中性；恢复须同步恢复目标2及原门控，勿仅取消帧表注释。现行内存CAN测试断言整个生命周期不发送0x000/0x603。
+
+2026-11-01制动前微驱动：FSD controller的`runBrakeBench/publishBenchCommand`使用带符号开度，源码controller.yaml的`acceleration.bench_brake.pre_drive_opening`控制原delay_sec阶段；can_interface.cpp的target订阅及sendControlFrame仅为目标3放行0～5%正开度。配置检查在根tools/check_fsd_module_configs.py；回归为tools/test_fsd_module_configs.py、tools/test_brake_bench_ros.py与CAN内存设备brake_bench_can。直接电机停用标记保持。
+
+复盘已知限制与2026-11-05离线验证结果统一见[test_maps说明](../test_maps/README.md#已知限制2026-11-05核对)；当前提交保留这两个已复现问题，尚未修复。

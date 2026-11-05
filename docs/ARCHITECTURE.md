@@ -1,5 +1,8 @@
 # 当前系统架构
 
+> 2026-11-05测试路径地图：正常全车入口在控制器/任务机前启动显示子模块现有mission_review，只读采集final_waypoints及标准pose，保留原惯导/目标点采集和规划器CSV。采集结果统一写入工作空间`test_maps/<运行目录名>_<采集时间>_<唯一编号>/`，包含JSONL、map.svg和任务分段SVG/状态。mission_review_history维护观察历史，新增mission_review_map只负责分段连线与SVG导出，不生产驾驶地图/规划/定位/TF。正常及复盘RViz仅增加图层，原坐标系/视角不变。传感器/台架/人工记录不自动采集；观察失败不参与驾驶门控。详见[test_maps说明](../test_maps/README.md)。
+
+> 当前临时状态（2026-11-01）：按用户要求，工控机直接发送给制动电机的全部路径已用`WUTA_DIRECT_BRAKE_PAUSED`标记注释停用，包括NMT 0x000、0x603初始化/参数/启动/正常停止/异常和析构发送，以及初始化请求、应答解析和推进。原实现完整保留供恢复；target=2按中性处理。当前台架为真实GO→仅通过0x210请求5%微驱动5秒（可配置0～5%，0恢复中性等待）→50%制动10秒→中性/FINISH，不再等待直接初始化或3秒间隔；0x301心跳和台架超时/按路由限幅/转向归中保护保留。此限制只约束FSD自身，VCU或其他车端节点仍可能自行向电机发送报文。下文直控、双路流程为停用方案记录，以本条为准。未启动硬件。
 
 > 核对：2026-10-13；入口依据 [start_full_fsd.sh](../start_full_fsd.sh)。本页是模块文件、功能、复用入口及职责归属的主说明，开始项目任务前先阅读。具体参数以模块配置和实际启动覆盖为准，不在这里维护调参值。按功能快速定位见 [代码索引](CODE_MAP.md)，消息契约见 [接口文档](ROS_INTERFACE.md)。
 
@@ -236,6 +239,7 @@ ROS包名为`kiss_icp`，包定义在`kiss-icp/ros`；内部C++/Python/评估目
 | 对应文件/函数 | 功能 |
 | --- | --- |
 | `include/boundary_detector/boundary_detector_node.hpp`、`src/boundary_detector_node.cpp` | 车位姿/模式、局部失败连续次数、冻结全局Lane及ROS调度 |
+| `include/boundary_detector/acceleration_lines.hpp`、同cpp的processAccelerationMap | 直线加速双侧鲁棒平行线拟合、稳定检查、执行阶段冻结方向；不推断终点 |
 | 同cpp的computePairedCenterline/computeLocalFrameCenterline | 红蓝边界配对与局部左右几何兜底 |
 | 同cpp的coneMapToPoints/computeCenterline | 调用Delaunay/PathSearch并保留历史中点连续性 |
 | 同cpp的computeGlobalCenterline/publishPlanningStatus | 闭合地图配对/排序、几何兜底、质量验收、方向环线冻结及ready/confidence |
@@ -244,7 +248,9 @@ ROS包名为`kiss_icp`，包定义在`kiss-icp/ros`；内部C++/Python/评估目
 | `include/hpl/{hpl_param,hpl_log}.hpp` | 旧库接口兼容层，ParamNode.declParam当前为空，库内字段不能仅加YAML就视为已调参 |
 | `config/boundary_detector.yaml`、`CMakeLists.txt` | 节点配置、内部静态pathplanning库和boundary_detector_node构建 |
 
-只为Trackdrive消费ConeMap、pose和任务状态，输出 `/planning/centerline`、`global_centerline_ready`、`path_confidence`。在线局部配对不足时几何兜底；地图闭合后另验收全局环线并冻结。黄橙锥不作为正常红蓝边界，地图闭合不等于中心线合格。
+为Trackdrive和直线加速消费ConeMap、pose和任务状态，输出 `/planning/centerline`、`global_centerline_ready`、`path_confidence`。在线局部配对不足时几何兜底；地图闭合后另验收全局环线并冻结。黄橙锥不作为正常红蓝边界，地图闭合不等于中心线合格。
+
+直线加速只使用红左蓝右边界：双侧RANSAC剔除离群点，联合正交最小二乘拟合共享方向。连续稳定后发布两点直线中心参考，活动阶段冻结；全局环线ready保持false。path_generator沿该方向变换既有距离锚点，仍唯一发布最终路径。具体参数、失败行为见DESIGN中的“直线加速双侧边界方向”。
 
 本模块产生赛道几何参考，不发布最终执行路径/Command，不负责正式计圈。模式回调当前不提供完整冻结环线reset协议；跨任务会话复用须联动建图生命周期。
 
@@ -417,7 +423,8 @@ wuta_logs/
 | ZLG`main.c`、`can_side.c`、`zlg_side.c` | SocketCAN与USB CAN双向原始帧搬运及设备资源；业务协议仍在FSD can_interface |
 | ZLG`mode_cache.{c,h}`、`can_log.{c,h}`、`logger.{c,h}` | 会话模式快照、报文日志及桥运行日志 |
 | ZLG`start_zlg_bridge.sh`、`bridge.yaml`、`Makefile` | 硬件桥部署资产、配置和构建 |
-| 显示`src/fsd_visualization/fsd_visualization/bridge.py` | 从真实算法消息生成独立Marker/速度/状态显示，不回写算法结果 |
+| 显示`src/fsd_visualization/fsd_visualization/bridge.py` | 从真实算法消息生成独立Marker/速度/诊断快照；消费ConeMap五色字段，按采样TF生成可选base_link坐标，不回写算法结果 |
+| 显示`src/fsd_visualization/fsd_visualization/diagnostics.py`、`src/fsd_rviz_plugins/src/diagnostics_panel.cpp` | 真实消息摘要与固定诊断/锥桶坐标表；任务门控来自MissionState，控制开度不代表电机实测状态 |
 | 显示`src/fsd_visualization/fsd_visualization/configuration.py`、`src/fsd_visualization/launch/view.launch.py` | 布局渲染与显示桥/RViz组装，不启动FSD驾驶算法 |
 | 显示`src/fsd_visualization/config/{topics.yaml,fsd.rviz}`、`src/fsd_rviz_plugins/src/safe_image.cpp` | 显示话题/布局与安全图像插件；修改显示优先走现有配置/桥/插件 |
 | 显示`radio_link/fsd_radio/{ros_sender,geometry,protocol,link,transport,worker}.py` | 115200 bps串口/62.5 kbps空速无线显示传输：消费标准显示Marker与真实位姿/速度，采样TF、量化、限量、双向扩展；复用原显示配置生成器，不生产权威算法结果 |
@@ -549,7 +556,7 @@ Outbox在原链路内增加独立有界commands FIFO，RPC指令、相应ACK与�
 
 ## 静态制动台架入口（2026-10-21）
 
-CLI `terminal_ui.py/manager.py`以M键循环选择本次运行的正常/制动台架/有人跑动记录配置，根`start_full_fsd.sh --brake-bench`沿原日志、监管及ZLG生命周期仅启动CAN、controller、mission_manager和只读监控；不另建启动器或驾驶发布者。controller的runBrakeBench使用单调时钟直接输出静态制动序列，经原Command/CAN出口执行；配置沿用controller.yaml。mission_manager仍唯一发布MissionState及DevicesInspection，台架豁免传感器/GNSS/定位但保留真实直线加速选档、GO及急停。MissionState新增brake_bench_mode供执行端核对，CAN台架分支包含500ms输入超时归中性和无正驱动/转向约束。正式距离制动、路径与赛项所有权不变；恢复流程与验证边界见[DEPLOYMENT](DEPLOYMENT.md)。
+CLI `terminal_ui.py/manager.py`以M键循环选择本次运行的正常/制动台架/有人跑动记录配置，根`start_full_fsd.sh --brake-bench`沿原日志、监管及ZLG生命周期仅启动CAN、controller、mission_manager和只读监控；不另建启动器或驾驶发布者。controller的runBrakeBench使用单调时钟直接输出静态制动序列，经原Command/CAN出口执行；配置沿用controller.yaml。mission_manager仍唯一发布MissionState及DevicesInspection，台架豁免传感器/GNSS/定位但保留真实直线加速选档、GO及急停。MissionState新增brake_bench_mode供执行端核对，CAN台架分支包含500ms输入超时归中性、目标3最多5%微驱动、目标1仅负制动和转向归中约束。正式距离制动、路径与赛项所有权不变；恢复流程与验证边界见[DEPLOYMENT](DEPLOYMENT.md)。
 
 ## 人工驾驶记录模式（2026-10-22）
 
@@ -561,9 +568,17 @@ ZLG桥本次独占启动 `--receive-only --log-frames=on`，只保留硬件→So
 
 2026-10-22：静态制动台架GO前置协议扩展在原`can_interface::parseResFrame/prepareBrakeBench`内，读取权威READY、自检并在GO转发前发送0x603两种固定8字节报文交替三组；六帧成功写入后仍由原任务机决定EXPLORE、原controller计时与制动，不新增任务状态机、Command生产者或启动入口。失败沿原急停事件退出。详见[ROS_INTERFACE](ROS_INTERFACE.md)及[DEPLOYMENT](DEPLOYMENT.md)。
 
-2026-10-23当前状态：台架0x603前置调用已临时注释，GO恢复直接转交原任务机；controller原5秒等待、10秒50%制动及中性释放仍经Command→0x210执行，原0x301心跳保持。prepareBrakeBench源码保留但不调用，无额外电机直发报文；正常FSD及人工记录职责不变。
+2026-10-23早期临时状态（已由下述延时后初始化方案替代）：台架0x603前置调用已临时注释，GO恢复直接转交原任务机；controller原5秒等待、10秒50%制动及中性释放仍经Command→0x210执行，原0x301心跳保持。prepareBrakeBench源码保留但不调用，无额外电机直发报文；正常FSD及人工记录职责不变。
 
 无线0.7.10：远程cli.cycle_mode经原ControlAPI/Manager.operate调用M键cycle_run_profile，原停止/清理/会话限制与重置检查结果保持。Manager原发布状态的selected_mode/active_mode补入心跳与cli.status，由Linux无线转发；PC仅据权威字段派生模式。模式切换与检查/启动/停止共用控制优先级与在途互斥，expected_mode校验防止迟到请求在其他已选模式下切换。显示在原CLI状态Indicator内，不新设模式面板或驾驶状态机。
+
+历史方案（2026-10-23，当前停用）——延时后初始化：controller唯一拥有台架5秒等待及10秒制动计时；等待完成通过`/control/brake_bench/initialize`请求原can_interface执行节点3的CANopen初始化。can_interface负责NMT/SDO设备协议及应答确认，通过`/can/brake_bench/initialized`回报；确认前Command和0x210均保持中性，成功后controller才开始制动保持计时。此设备握手不改变mission_manager的任务所有权，不另增启动器或驾驶发布者。正常模式不创建此握手接口，receive_only仍禁止全部发送。
+
+历史方案（当前停用）——电机直控：controller仍唯一产生Command并拥有业务计时，can_interface沿既有SDO事务将负Command转换为6071/6040制动或停止报文；不新增控制话题或驾驶发布者。VCU仅收到中性0x210及原心跳，mission_manager任务所有权不变。
+
+历史方案（当前停用）——双路时序由原controller的runBrakeBench唯一编排，新增台架target事件只选择既有CAN出口，不新增任务状态机或驾驶Command生产者。CAN对VCU/直接电机进行互斥路由及新鲜度保护。
+
+惯导临时屏蔽由部署入口的`--no-ins`/`--with-ins`控制，后者恢复默认启动/检查；CLI的`options_from`按参数顺序归一化，权限、预检查和运行检查共用结果。根入口跳过华测启动、串口检查及惯导/定位首帧等待，消息包依赖保留；仅本次对任务机覆盖`check_imu=false`，恢复时读取YAML原值。不修改任务机、标准定位或GNSS/设备故障所有权，其他设备检查和驾驶门控保持原配置，界面明确标跳过。
 
 ## 感知链路 Reliable 接入（2026-10-25）
 
@@ -572,3 +587,13 @@ ZLG桥本次独占启动 `--receive-only --log-frames=on`，只保留硬件→So
 雷达检测保持KeepLast(1)，融合与任务机保持深度5；相机输入与标注图保持深度5，CLI/RViz保持深度1。最新图像覆盖及深度匹配机制不变，Reliable不承诺算法过载时处理每帧。惯导兼容订阅及急停锁存契约不变。完整接口见[ROS_INTERFACE](ROS_INTERFACE.md#感知链路-qos2026-10-25)，部署见[DEPLOYMENT](DEPLOYMENT.md#感知-reliable-部署2026-10-25)。
 
 macOS接收端打包（2026-10-23）：沿用radio_link/windows_receiver.py和原PC业务；windows_receiver.spec仅按sys.platform切换pyserial动态枚举后端，不新增接收/控制所有者。build_macos.sh负责原生构建、附布局/启动.command/构建信息并生成tar.gz与校验；GitHub Actions双架构构建成功后可发布独立Mac Release。不是Windows交叉编译，不改Linux或无线协议。
+
+## 独立任务复盘（2026-10-31）
+
+显示子模块`review.sh`→`fsd_visualization/mission_review.py`为只读观察入口，正常全车由根脚本自动启动，独立复盘可显式启动；`mission_review_history.py`只管理观测分段、追加式保存和回放，不决定发车、完成或驾驶。现有显示桥缺少完整目标点历史和跨进程复盘，故使用独立节点/窗口；原自检RViz、发送端话题与配置不改。输入现有标准pose、华测Odometry/速度、最终Lane、pp_target Marker、MissionState与急停；输出仅/mission_review/* MarkerArray及状态String。传入已有run.json目录作为来源，观察文件增量保存到工作空间test_maps下的独占采集目录，不接管车辆运行创建/归档。
+
+FINISH/EMERGENCY后停止目标采集，继续惯导滑行至观察到停稳或输入中断；判断只影响复盘。原MissionState、标准pose、实际控制目标与Command所有权不变。启动前未收到的数据不回填；按接收事件保存样本，TF超时保留原始坐标并报告。当前仍有旧Lane覆盖及结束阶段待TF目标丢失两个已知问题，详见[test_maps限制说明](../test_maps/README.md#已知限制2026-11-05核对)。使用和验证边界见显示子模块README“独立任务复盘”。
+
+## 台架微驱动扩展（2026-11-01）
+
+沿现有controller::runBrakeBench业务时序，GO后原等待段改为恒定微驱动请求，参数唯一来源为controller.yaml的acceleration.bench_brake.pre_drive_opening（默认0.05，范围0～0.05；0恢复中性等待）。CAN只做台架路由/协议限幅：target=3允许最多5%正驱动，target=1仍仅负制动；目标0/停用的2/未知目标中性。控制器继续唯一计时和发布Command，任务机唯一发布MissionState，直接电机代码保持停用。异常、超时、结束归中性，正常赛项链路不变。

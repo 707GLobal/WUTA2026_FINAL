@@ -25,16 +25,18 @@ def rig(tmp_path):
     rclpy.init()
     node = rclpy.create_node('brake_bench_test')
     processes, logs = [], []
-
-    def launch(package, bench=True, short=True):
+    def launch(package, bench=True, short=True, pre_drive=None):
         args = [str(WS / 'install' / package / 'lib' / package / (package + '_node')),
                 '--ros-args', '-p', 'brake_bench_mode:=' + str(bench).lower()]
         if package == 'controller':
             config = WS / 'src/control/controller/config/controller.yaml'
-            if short:
+            if short or pre_drive is not None:
                 document = yaml.safe_load(config.read_text())
-                document['controller_node']['ros__parameters']['acceleration']['bench_brake'].update(
-                    delay_sec=0.2, hold_sec=0.4)
+                bench_values = document['controller_node']['ros__parameters']['acceleration']['bench_brake']
+                if short:
+                    bench_values.update(delay_sec=0.2, inter_stage_delay_sec=0.1, hold_sec=0.4)
+                if pre_drive is not None:
+                    bench_values['pre_drive_opening'] = pre_drive
                 config = tmp_path / 'controller.yaml'
                 config.write_text(yaml.safe_dump(document))
             args += ['--params-file', str(config)]
@@ -94,20 +96,25 @@ def test_actual_5s_10s_sequence_without_sensors_and_one_shot(rig):
     go.publish(Bool(data=True))
     until(lambda: states[-1].state == MissionState.EXPLORE)
     started = time.monotonic()
+    until(lambda: any(m.throttle_brake == .05 for _, m in commands), timeout=1)
     until(lambda: any(m.throttle_brake == -.5 for _, m in commands), timeout=6)
     braking_at = next(t for t, m in commands if m.throttle_brake == -.5)
-    assert 4.7 < braking_at - started < 5.3
-    until(lambda: states[-1].state == MissionState.FINISH, timeout=11)
-    released_at = next(t for t, m in commands if t > braking_at and m.throttle_brake == 0)
-    assert 9.7 < released_at - braking_at < 10.3
+    assert 4.7 < braking_at - started < 5.4
+    until(lambda: states[-1].state == MissionState.FINISH, timeout=25)
+    vcu_released_at = next(t for t, m in commands if t > braking_at and m.throttle_brake == 0)
+    assert 9.7 < vcu_released_at - braking_at < 10.3
+    # WUTA_DIRECT_BRAKE_PAUSED: 当前VCU释放后直接FINISH，没有第二路动作。
+    released_at = vcu_released_at
     go.publish(Bool(data=True)); spin(.4)
     assert states[-1].state == MissionState.FINISH
-    assert all(m.speed == 0 and m.angle == 0 and m.throttle_brake in (0, -.5) for _, m in commands)
+    assert all(m.speed == 0 and m.angle == 0 and m.throttle_brake in (0, .05, -.5) for _, m in commands)
+    assert all(m.throttle_brake == .05 for t, m in commands if started + .2 < t < braking_at)
+    assert not any(m.throttle_brake > 0 for t, m in commands if t >= braking_at)
     assert all(m.throttle_brake == 0 for t, m in commands if t >= released_at)
     assert states[-1].brake_bench_mode
 
 
-@pytest.mark.parametrize('scenario', ['emergency', 'short_sequence', 'mismatch', 'late_start'])
+@pytest.mark.parametrize('scenario', ['emergency', 'short_sequence', 'mismatch', 'late_start', 'zero_pre_drive'])
 def test_controller_interrupts_never_fall_into_driving(rig, scenario):
     node, launch, spin, until = rig
     commands = []
@@ -118,7 +125,7 @@ def test_controller_interrupts_never_fall_into_driving(rig, scenario):
     if scenario == 'emergency':
         # Also verify a controller starting after a latched RES emergency stays neutral.
         emergency.publish(Bool(data=True))
-    launch('controller')
+    launch('controller', pre_drive=0.0 if scenario == 'zero_pre_drive' else None)
     until(lambda: states.get_subscription_count() > 0 and commands)
     state = MissionState(brake_bench_mode=True, mission_mode=MissionState.MISSION_ACCELERATION)
     if scenario != 'late_start':
@@ -127,16 +134,18 @@ def test_controller_interrupts_never_fall_into_driving(rig, scenario):
     state.state = MissionState.EXPLORE
     if scenario == 'mismatch':
         state.brake_bench_mode = False
-    for _ in range(20):
+    for _ in range(40):
         states.publish(state); spin(.04)
-    if scenario == 'short_sequence':
+    if scenario in ('short_sequence', 'zero_pre_drive'):
         assert any(m.throttle_brake == -.5 for m in commands)
         assert commands[-1].throttle_brake == 0
+        assert any(m.throttle_brake == .05 for m in commands) == (scenario == 'short_sequence')
     else:
         assert all(m.throttle_brake == 0 for m in commands)
 
 
-def test_mission_timeout_during_braking_aborts_and_does_not_resume(rig):
+@pytest.mark.parametrize('phase', ['pre_drive', 'braking'])
+def test_mission_timeout_aborts_and_does_not_resume(rig, phase):
     node, launch, spin, until = rig
     commands = []
     node.create_subscription(Command, '/control/command', commands.append, 10)
@@ -147,10 +156,34 @@ def test_mission_timeout_during_braking_aborts_and_does_not_resume(rig):
                          state=MissionState.READY)
     states.publish(state); spin(.1)
     state.state = MissionState.EXPLORE
-    for _ in range(55):
+    for _ in range(85 if phase == 'braking' else 5):
         states.publish(state); spin(.1)
-    assert commands[-1].throttle_brake == -.5
+    assert commands[-1].throttle_brake == (-.5 if phase == 'braking' else .05)
     spin(.7)
+    assert commands[-1].throttle_brake == 0
+    for _ in range(8):
+        states.publish(state); spin(.1)
+    assert commands[-1].throttle_brake == 0
+
+
+@pytest.mark.parametrize('phase', ['pre_drive', 'braking'])
+def test_emergency_during_sequence_latches_neutral(rig, phase):
+    node, launch, spin, until = rig
+    commands = []
+    node.create_subscription(Command, '/control/command', commands.append, 10)
+    states = node.create_publisher(MissionState, '/system/mission_state', 10)
+    emergency = node.create_publisher(Bool, '/system/emergency',
+        QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
+    launch('controller', short=False)
+    until(lambda: commands and states.get_subscription_count() > 0)
+    state = MissionState(brake_bench_mode=True, mission_mode=MissionState.MISSION_ACCELERATION,
+                         state=MissionState.READY)
+    states.publish(state); spin(.1)
+    state.state = MissionState.EXPLORE
+    for _ in range(55 if phase == 'braking' else 3):
+        states.publish(state); spin(.1)
+    assert commands[-1].throttle_brake == (-.5 if phase == 'braking' else .05)
+    emergency.publish(Bool(data=True)); spin(.2)
     assert commands[-1].throttle_brake == 0
     for _ in range(8):
         states.publish(state); spin(.1)

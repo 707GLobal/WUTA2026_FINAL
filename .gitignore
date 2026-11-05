@@ -1,6 +1,7 @@
 /.runtime/
 /logs/
 /wuta_logs/
+/test_maps/*/
 /models/*.engine
 /config/camera_lidar.yaml
 

@@ -796,6 +796,24 @@ fi
 
 BENCH_ARGS=(-p "brake_bench_mode:=$([[ "$BRAKE_BENCH" == 1 ]] && echo true || echo false)")
 if [[ "$SENSOR_ONLY" == 0 ]]; then
+    if [[ "$BRAKE_BENCH" == 0 && "$MANUAL_RECORD" == 0 ]]; then
+        MAP_READY_FILE="$RUN_DIR/artifacts/mission_review.ready"
+        setsid bash "$VIS_WS/review.sh" --run-dir "$RUN_DIR" --no-rviz \
+            --maps-dir "$ROOT/test_maps" --ready-file "$MAP_READY_FILE" \
+            > "$RUN_DIR/artifacts/mission_review.log" 2>&1 &
+        MAP_OBSERVER_PID=$!
+        OBSERVER_PIDS+=("$MAP_OBSERVER_PID")
+        for ((attempt=0; attempt<60; attempt++)); do
+            [[ ! -f "$MAP_READY_FILE" ]] || break
+            kill -0 "$MAP_OBSERVER_PID" 2>/dev/null || break
+            sleep 0.05
+        done
+        if [[ -f "$MAP_READY_FILE" ]]; then
+            report_ok "只读路径地图采集已启动，测试地图保存到 $ROOT/test_maps/"
+        else
+            echo "[警告] 地图采集尚未就绪，车辆运行继续；请查看 $RUN_DIR/artifacts/mission_review.log" >&2
+        fi
+    fi
     if [[ "$MANUAL_RECORD" == 0 ]]; then
         start_group controller ros2 run controller controller_node --ros-args \
             --params-file "$CONTROLLER_CONFIG" "${BENCH_ARGS[@]}"
