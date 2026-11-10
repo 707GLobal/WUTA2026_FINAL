@@ -311,11 +311,11 @@ ROS包名为`kiss_icp`，包定义在`kiss-icp/ros`；内部C++/Python/评估目
 | `include/can_interface/can_frame.hpp` | CAN ID/DLC/数据类型，独立于ROS任务算法 |
 | `include/can_interface/can_socket.hpp`、`src/can_socket.cpp` | 套接字打开/bind、非阻塞收发和关闭，编为can_socket库 |
 | `include/can_interface/can_interface.hpp`、`src/can_interface.cpp` | ROS订阅/发布、最近Command缓存、协议定标/打包、在线/完成位、周期/回调发送、帧轮询与分派 |
-| 同cpp的parseVcuFrame/parseResFrame/repeatMissionMode | VCU模式解析与晚启动重发、RES GO边沿/急停事件，GO不重放或缓存 |
+| 同cpp的parseVcuFrame/parseVcuStateFrame/parseResFrame/repeatMissionMode | VCU模式解析与晚启动重发、0x211整车状态7→8起算5 s的GO保险、RES GO边沿/急停事件，GO不重放或缓存 |
 | `include/can_interface/mode_cache.hpp`、`src/mode_cache.cpp`及restoreModeCache | 校验ZLG会话/接口/进程身份/快照，实时模式优先，启动时只恢复模式 |
 | `config/can_interface.yaml`、`docs_for_can`、`MODE_CACHE.md`、`CMakeLists.txt` | 当前协议/缓存说明、配置、can_interface_node及can_socket构建 |
 
-Command、MissionState和DevicesInspection → CAN控制/心跳帧；VCU/RES帧 → 模式、GO、急停ROS事件。它不重算PID、不判地图质量、不运行第二个赛项状态机，VCU轮边速度当前未启用，实车控制速度由华测提供。
+Command、MissionState和DevicesInspection → CAN控制/心跳帧；VCU/RES帧 → 模式、GO、急停ROS事件。0x211整车状态字节只在包内维护，GO转发前要求已出现7→8并满等待时间，不新增ROS状态话题。它不重算PID、不判地图质量、不运行第二个赛项状态机，VCU轮边速度当前未启用，实车控制速度由华测提供。
 
 CAN业务编码与ZLG硬件搬运分层，模式缓存是ZLG生产/CAN消费关系。控制帧发送门是收到首份自检结论，心跳有独立路径；当前周期发送最近Command，不包含历史命令看门狗或标定表能力。相关扩展进本包，不在界面补发执行指令。
 

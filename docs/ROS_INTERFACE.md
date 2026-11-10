@@ -50,7 +50,7 @@
 | `/system/mission_state` | wuta_msgs/MissionState | 唯一发布者任务机 → 各算法节点、CAN、监控；10 Hz |
 | `/system/lap_count` | std_msgs/UInt32 | 当前唯一发布者任务机 → 建图、规划；正式定位过线计圈 |
 | `/system/mission_mode_cmd` | std_msgs/String | CAN → 任务机；trackdrive/skidpad/acceleration/inspection/ebs_test |
-| `/system/start_command` | std_msgs/Bool | CAN → 任务机；RES GO 变化沿，非周期自动发车 |
+| `/system/start_command` | std_msgs/Bool | CAN → 任务机；RES GO 变化沿，且需 0x211 Byte1 7→8 满 5 s 后才会转发，非周期自动发车 |
 | `/system/emergency` | std_msgs/Bool | CAN 或任务机自检 → 任务机/控制器；急停锁存 |
 | `/system/devices_inspection` | wuta_msgs/DevicesInspection | 任务机 → CAN；ok + failures |
 | `/system/mission_complete` | std_msgs/Bool | 控制器 → 任务机；Trackdrive 由正式圈次完成 |
@@ -99,7 +99,10 @@
 | 控制 | 0x210（528），周期0.1 s，同时受回调发送影响 | Signal1 纵向、Signal2 转向为两字节大端；Signal3 在线、Signal4 完成 |
 | 心跳 | 0x301（769），周期0.05 s，DLC1 | Data[0] 随设备自检 ok 为1/0 |
 | VCU 输入 | 0x501（1281） | 任务模式；当前模式周期重发，供晚启动任务机同步 |
+| VCU 状态输入 | 0x211（529） | Byte1=整车状态；无人自检完成判据为 7→8，接收端起算 5 s |
 | RES 输入 | 0x1E4（484） | 首字节0x13 GO、0x10急停、0x11上线；GO只在状态变化沿发布 |
+
+发车保险：`0x1E4` 的 GO 边沿只在 `0x211 Byte1` 出现 7→8 且满 `go_gate.wait_sec`（默认5 s）后转发；此前 GO 直接丢弃，不挂起不重放。启动时若已在 8，从首次收到 8 起保守重计等待；`go_gate.stale_sec`（默认1 s，<=0关闭）用于 0x211 断流时关门。台架 VCU 不发 0x211 时可用 `go_gate.enabled=false` 关闭本层。急停 0x10 不受该保险影响。
 
 CAN接口已回退到 `54a6038`：首份自检结论到达前不发送控制帧，正常模式之后按最近一次控制消息发送，不包含通用命令超时保护或标定表映射；台架模式额外执行下述500ms路由/Command/任务状态新鲜度检查。最大转角读取 `steer.max_steer_angle`，总启动检查与控制器的 `vehicle.max_steer_angle` 核对。当前 CAN 车速发布代码未启用，闭环速度来自华测。
 

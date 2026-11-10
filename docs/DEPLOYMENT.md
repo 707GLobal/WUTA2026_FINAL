@@ -46,6 +46,78 @@ cd /home/wuta/WUTA2026_FINAL
 
 ## 3. 构建与实车启动
 
+### 3.1 FSD 编译规范（2026-11-09）
+
+ROS 2 Humble 的构建工具和消息 Python 扩展统一使用系统 `/usr/bin/python3`（本机为3.10）。Conda 可以提供相机进程专用推理依赖，但不能作为 ROS 消息扩展的编译解释器、头文件或链接库。构建前停止待替换的运行实例，在未激活 Conda/venv 的终端操作；只修改 `src`，不编辑 `build/install` 副本，不清空整个工作空间或运行日志。
+
+仅指定 `Python3_EXECUTABLE` 不足以约束 Humble 的全部消息生成链：还要指定旧接口 `PYTHON_EXECUTABLE`、`PYTHON_INCLUDE_DIR` 和 `PYTHON_LIBRARY`。系统工具目录应排在 PATH 前面，避免命中 `~/.local/bin/cmake` 或 Conda 工具；构建时设置 `PYTHONNOUSERSITE=1`，避免用户级 Python 包干扰。已有错误缓存用 `--cmake-clean-cache` 重新配置，必要时加 `--cmake-clean-first` 重编对应包；不能靠修改 `.so` 文件名修复 Python ABI。
+
+本机标准命令如下。首次构建或修复消息产物时先执行消息包构建，成功后再构建业务包。华测消息依赖的已有安装环境按实际部署加载；首次部署需先完成华测工作空间构建。
+
+```bash
+cd /home/wuta/WUTA2026_FINAL/WUTA-FSD/ros2_ws
+source /opt/ros/humble/setup.bash
+source /home/wuta/WUTA2026_FINAL/humble-chcnav-cgi_ros2pkg/install/setup.bash
+export PATH=/usr/bin:/bin:$PATH
+export PYTHONNOUSERSITE=1
+/usr/bin/python3 --version
+command -v cmake
+
+fsd_cmake_args=(
+  -DPython3_EXECUTABLE=/usr/bin/python3
+  -DPYTHON_EXECUTABLE=/usr/bin/python3
+  -DPYTHON_INCLUDE_DIR=/usr/include/python3.10
+  -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.10.so
+)
+/usr/bin/colcon build --base-paths src --symlink-install --parallel-workers 2 \
+  --packages-select wuta_msgs autoware_msgs \
+  --cmake-clean-cache --cmake-clean-first --cmake-args "${fsd_cmake_args[@]}"
+source install/local_setup.bash
+/usr/bin/colcon build --base-paths src --symlink-install --parallel-workers 2 \
+  --packages-select camera_detection detection_fusion \
+  --cmake-clean-cache --cmake-args "${fsd_cmake_args[@]}"
+```
+
+上例业务包依赖已安装时可用 `--packages-select`；首次构建应按实际依赖使用 `--packages-up-to`，或去掉包选择参数构建完整 FSD。日常增量构建可省略清缓存/清目标参数，保留系统 Python 参数。若修改消息定义，应同步重建实际消费者及相关 overlay，重启后使用同版消息；仅修复相同消息定义的 Python ABI 不代表接口发生变化。
+
+当前感知运行组合为 **Python YOLO 检测 + C++ 双目深度适配 + C++ 融合**。`camera_detection` 是混合包，构建时会安装 Python 入口并编译可用的 C++ 目标；不能用“包编译成功”推断运行后端。当前 `camera_detection.yaml` 使用 `yolov8sp2-int8.engine`，硬件 launch 的 `detector_backend=auto` 选择 `yolov8_node`；`adapter_backend=cpp` 和 `fusion_backend=cpp` 分别选择 `stereo_detection_adapter_cpp`、`detection_fusion_node_cpp`。C++ 图像检测目标 `lwdetr_tensorrt_node` 仅支持 LW-DETR engine，不能直接替代 YOLO。模型或 launch 参数变更后重新核对实际选择。
+
+构建完成后必须验证消息类型支持，不能只检查 Python 消息类能否 import。以下检查不创建 ROS 节点、不连接硬件：
+
+```bash
+source install/local_setup.bash
+/usr/bin/python3 - <<'PY'
+from rosidl_generator_py import import_type_support
+from rclpy.type_support import check_is_valid_msg_type
+from wuta_msgs.msg import ConeArray, CameraConeDetectionArray, MissionState
+from autoware_msgs.msg import Lane, Command
+
+for package in ('wuta_msgs', 'autoware_msgs'):
+    print(import_type_support(package).__file__)
+for message in (ConeArray, CameraConeDetectionArray, MissionState, Lane, Command):
+    check_is_valid_msg_type(message)
+print('ROS message type support OK')
+PY
+```
+
+本机输出应指向当前工作空间的 `cpython-310` 扩展。若出现 `UnsupportedTypeSupport`、`No module named ...s__rosidl_typesupport_c`，先核对消息包 `CMakeCache.txt` 中的 `PYTHON_EXECUTABLE`、`PYTHON_INCLUDE_DIR`、`PYTHON_LIBRARY`、`PYTHON_SOABI` 以及实际扩展后缀，再按上述流程修复。2026-11-09 的启动失败正是消息扩展编成 `cpython-314`，而 YOLO/ros2cli 使用 Python3.10；重编两个业务包不会自动修复已有消息依赖。
+
+2026-11-09 已用上述系统 Python 参数重编两个消息包，5种消息类型支持离线检查通过。相机/融合包构建通过；融合既有测试通过，相机有1项测试因测试环境未加载 ONNX Runtime 失败。此记录不代表实车全栈验证通过。
+
+#### 2026-11-10：从备份恢复并全量重编
+
+已将 `backup/WUTA-FSD` 中的源码、配置和说明恢复到当前 `WUTA-FSD`，按内容核对402个文件一致；未复制备份内的Git元数据，未删除原有历史日志或额外文档。恢复前的controller/path_generator两份本地调参文件及差异保存在 `.runtime/fsd_restore_20261110/pre_restore/`；当前参数采用备份值。
+
+本次在 `env -i`、未激活Conda/venv的环境中，按3.1节同时指定新旧Python参数，使用系统Python3.10.12和 `/usr/bin/cmake`。先清缓存/清目标重建两个消息包并验证类型支持，再对全部17个包执行 `--cmake-clean-cache --cmake-clean-first` 全量构建，17包成功。原有12个Python3.14扩展文件/安装链接已删除，build/install内未发现 `cpython-314` 或 `python3.14` 残留。纯C++包报告未使用旧Python变量、TensorRT头文件报告弃用警告，不影响本次构建成功。
+
+逐包核对17份CMake缓存中的解释器、头文件和库均为系统3.10；wuta_msgs、autoware_msgs及robot_localization的实际类型支持均加载当前工作空间的 `cpython-310` 扩展，22种消息/服务请求/响应类型通过类型支持及序列化往返检查。29个已安装ELF可执行文件的动态库检查无缺失。相机18项、融合11项Python用例通过；CAN只收/发车保险/制动台架3项及控制器PID 1项CTest通过，历史brake_bench_prepare保持禁用。未启动实车入口、传感器或真实CAN。
+
+**依赖隔离注意：** 相机测试加载 `HARDWARE_DEPS` 下的ONNX Runtime；YOLO使用系统Python3.10，并由原模型后端加载 `miniconda3/envs/tensorrt/lib/python3.10/site-packages` 内的推理依赖，PyTorch/TensorRT/Ultralytics导入检查通过。Python融合检查和测试只加载系统NumPy/SciPy，不加载相机依赖目录；本机 `HARDWARE_DEPS/scipy` 与系统NumPy1.21.5不兼容，向Python融合全局注入该目录会导致导入失败。当前默认C++融合构建和动态库检查通过；本次未更改共享依赖目录或切换后端，若改用Python融合须先隔离该目录或解决依赖兼容性。
+
+完整命令、构建/测试输出、恢复校验及逐包Python审计保存在 `.runtime/fsd_restore_20261110/`，全量colcon日志在 `WUTA-FSD/ros2_ws/log/restore_20261110_full/`。以上为本次离线构建和验证结果，不代表实车验收。
+
+### 3.2 现有启动入口
+
 ```bash
 ./start_fsd_manager.sh --menu       # 推荐：单终端检查、状态与日志界面
 ./start_fsd_manager.sh --check      # 管理器并行只读预检查
@@ -57,6 +129,8 @@ cd /home/wuta/WUTA2026_FINAL
 ```
 
 `--check` 检查部署文件、设备/网络和已有资源，失败原因以输出为准。`--build-only` 构建华测msg_interfaces/chcnav、当前FSD各包、ZLG桥和显示包。默认自动构建仅在关键setup缺失时触发，已有install不保证源码修改已重建。
+
+当前根脚本的 FSD 构建分支只显式传入 `Python3_EXECUTABLE`，尚未自动落实3.1节全部参数与消息类型验证；遇到已有 Conda 缓存时，先按3.1节完成修复，不把 `--build-only` 成功当作 Python ABI 正确的证明。
 
 当前启动优先验证并复用同接口唯一外部ZLG桥，退出时保留它；无桥才创建并等待初始化，最多30秒。重复实例或接口不匹配报错，不强制停止外部桥。sudo通过本机本地askpass自动认证，串口缺权限时授予当前用户ACL。
 

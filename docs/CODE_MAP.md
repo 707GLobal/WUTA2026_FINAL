@@ -23,7 +23,7 @@
 | KISS 增量过滤 | `localization/kiss_icp_wrapper/src/kiss_odom_sanitizer_node.cpp` | `config/kiss_icp_hesai128.yaml`；当前实车不启动 |
 | NDT / 点云地图保存 | `localization/ndt_localization/src/{ndt_localization,map_saver}.cpp` | `config/ndt_localization.yaml`；map_saver 坐标变换仍有 TODO |
 | 任务 / 自检 / 计圈 | `system/mission_manager/src/mission_manager.cpp` | `config/mission_manager.yaml`；门控诊断编码在 MissionState.description；车检不设GNSS门槛，设备自检保留 |
-| CAN 任务输入 / 执行器输出 | `system/can_interface/src/{can_interface,can_socket}.cpp` | `config/can_interface.yaml`；协议在 `docs_for_can` |
+| CAN 任务输入 / 执行器输出 | `system/can_interface/src/{can_interface,can_socket}.cpp` | `config/can_interface.yaml`；协议在 `docs_for_can`；GO转发另受0x211整车状态7→8及5 s保险约束 |
 
 ## FSD 之外
 
@@ -195,5 +195,7 @@ macOS产物：显示.github/workflows/macos-receiver.yml（workflow_dispatch、a
 2026-11-01临时停用直发：controller.cpp初始化接口注册及runBrakeBench的直接电机阶段、can_interface.cpp初始化接口/协议实现/推进/析构停止均按WUTA_DIRECT_BRAKE_PAUSED编译排除，配套头文件声明和成员保留在同名注释块中。target订阅当前接受1和3，0/停用的2/未知值中性；恢复须同步恢复目标2及原门控，勿仅取消帧表注释。现行内存CAN测试断言整个生命周期不发送0x000/0x603。
 
 2026-11-01制动前微驱动：FSD controller的`runBrakeBench/publishBenchCommand`使用带符号开度，源码controller.yaml的`acceleration.bench_brake.pre_drive_opening`控制原delay_sec阶段；can_interface.cpp的target订阅及sendControlFrame仅为目标3放行0～5%正开度。配置检查在根tools/check_fsd_module_configs.py；回归为tools/test_fsd_module_configs.py、tools/test_brake_bench_ros.py与CAN内存设备brake_bench_can。直接电机停用标记保持。
+
+2026-11-09发车保险：can_interface.cpp新增`parseVcuStateFrame/vcuGoGateOpen`接收0x211 Byte1整车状态；仅在7→8跳变并满`go_gate.wait_sec`（默认5 s）后转发0x1E4 GO，此前GO直接丢弃；启动时已在8则从首次收到起保守计时，`go_gate.stale_sec`控制断流关门，`go_gate.enabled`供无0x211台架关闭。不新增ROS话题，mission_manager代码不变；内存CAN回归为`test_go_gate_can`。
 
 复盘已知限制与2026-11-05离线验证结果统一见[test_maps说明](../test_maps/README.md#已知限制2026-11-05核对)；当前提交保留这两个已复现问题，尚未修复。
