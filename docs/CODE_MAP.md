@@ -199,3 +199,35 @@ macOS产物：显示.github/workflows/macos-receiver.yml（workflow_dispatch、a
 2026-11-09发车保险：can_interface.cpp新增`parseVcuStateFrame/vcuGoGateOpen`接收0x211 Byte1整车状态；仅在7→8跳变并满`go_gate.wait_sec`（默认5 s）后转发0x1E4 GO，此前GO直接丢弃；启动时已在8则从首次收到起保守计时，`go_gate.stale_sec`控制断流关门，`go_gate.enabled`供无0x211台架关闭。不新增ROS话题，mission_manager代码不变；内存CAN回归为`test_go_gate_can`。
 
 复盘已知限制与2026-11-05离线验证结果统一见[test_maps说明](../test_maps/README.md#已知限制2026-11-05核对)；当前提交保留这两个已复现问题，尚未修复。
+
+## RViz目标点历史（2026-11-11）
+
+- 整次跑动曲线：显示子模块`mission_review.py:odometry/velocity`复用原订阅，`mission_review_history.py:orientation/velocity/replay`保存及恢复航向/速度；`mission_review_map.py:curve_tracks/export_curves`负责断流分段、航向解缠和PNG/SVG导出。结束/急停滑行收尾、切换任务和采集器退出复用原生命周期，文件与地图同目录。`review.sh`禁用用户site-packages以使用兼容的系统ROS/NumPy/Matplotlib。
+
+- 默认图层：`fsd-visualization-code/src/fsd_visualization/config/fsd.rviz`的`All control targets`，订阅`/mission_review/targets`（Reliable/Transient Local/depth1）。
+- 历史生产仍复用显示子模块`mission_review.py:publish_snapshot`和`mission_review_history.py:ReviewHistory`；当前任务全部已采集目标点持续显示，结束后保留，下一任务开始重置；独立复盘配置已启用同一图层。
+
+## 锥桶识别明细日志（2026-11-10）
+
+| 功能 | 实现入口 |
+| --- | --- |
+| 只读ROS适配、字段序列化、队列/写盘、分片与状态、离线CSV导出 | `tools/record_cones.py`（仅读取既有输出，非第二感知/地图生产者） |
+| 观察进程启动、异常告警及原停机清理 | `start_full_fsd.sh:start_cone_recorder/check_children/cleanup` |
+| 本次配置话题来源 | `configs/module_config_manifest.json`（现有审计快照）；地图为源码固定话题 |
+| 目录创建与归档 | `fsd_startup/log_context.py:RunLog.create/finish` |
+| 依赖检查 | `fsd_startup/checks.py:cone_recorder`，加载现有FSD overlay后只导入ROS/消息，异常为警告 |
+| CLI启动检查状态及详情 | `fsd_startup/runtime_checks.py:refresh_cone_recorder`、`manager.py:publish`；复用原terminal_ui运行检查详情 |
+| 组件日志“锥桶记录器” | `fsd_startup/dashboard.py:component_log_files`，两个界面共用 |
+| 无硬件回归 | `tools/test_record_cones{,_ros}.py`；CLI `test_logging.py`、`test_check_alignment.py`、`test_terminal_ui.py` |
+
+## CAN桥每次重新初始化（2026-11-11）
+
+- start_full_fsd.sh:reconnect_can_bridge/can_bridge_active：停止同接口唯一旧桥，确认退出后启动新桥；检查接口及初始化就绪。
+- tools/run_privileged_group.py:stop_bridge：PID启动时间/可执行文件/接口核对，pidfd定向TERM→必要时KILL，等待实际退出；原进程组监管保留。
+- fsd_startup/checks.py:can_occupancy/manual_record_occupancy：预检查只报告旧桥将替换，仍拒绝冲突接口/重复实例及人工记录下已有驾驶节点。
+- zlgcan_bridge/zlg_side.c：USB设备独占、保留sysfs连接目录、驱动复位/配置/启动、错误队列和失效发送拦截；仅当前单个type31/index0设备，通道0..3。
+- zlgcan_bridge/main.c：3次初始化尝试、线程创建检查、250ms健康检查、驱动队列计数和故障退出。tools/test_can_reconnect.py更新编排用例；本轮按用户要求未执行。
+
+2026-11-11临时覆盖（按用户要求）：zlgcan_bridge/zlg_bridge.h中ZLG_RUNTIME_HEALTH_CHECKS=0，暂停运行时USB身份检查、驱动错误队列读取及发送前USB身份检查；原检查实现保留，将宏改回1可恢复。启动时独占/USB身份绑定、预复位后的USB存在检查、配置与StartCAN结果、驱动收发接口直接失败及进程监管仍保留。未构建、未验证、未重启当前进程；下一次启动编译后生效。
+
+2026-11-13临时错误处理（覆盖此前任意非零事件退出的说明）：依据USBCAN-4E-U Linux专用手册正文第8页表2，0xE6为CAN总线其他错误，0xE5为总线关闭。zlg_side.c:zlg_bridge_check_health对0xE6按每2秒最多一次告警，记录本次设备打开会话的累计次数并继续读取错误队列，不置g_fault、不触发退出；其他非零事件、USB身份变化及驱动收发/错误读取调用失败沿原处理。错误码按枚举比较，不按通用头文件位掩码拆解；其余诊断字段对4E无有效性保证。当前源码健康检查宏为1，本条是开启检查时的分类策略，不整体关闭检查。按用户要求未运行测试或硬件验证，未重启当前进程；下次启动桥脚本编译后生效。

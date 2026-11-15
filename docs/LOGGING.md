@@ -175,3 +175,36 @@ CLI两种组件日志界面共用`dashboard.component_log_files`，覆盖`fsd_mo
 CLI `M` 循环选择“有人跑动记录”后按 `S` 启动、`X` 停止，保存于 `wuta_logs/manual_record/<YYYYmmdd_HHMMSS>/`。沿用正常日志生命周期和文件格式：manager日志/journal、run.json（mode=manual_record）、配置快照、模块/ROS输出、华测数据及诊断、ZLG逐帧接收日志、trajectory CSV及地图产物（满足原保存条件时）。不新增rosbag或另一套日志收集器，原始点云/图像不因这个模式自动落盘。
 
 实际轨迹从有效 `/localization/pose` 到达开始记录，无需VCU选档或RES GO；速度仍来自华测。未启动控制器，CSV命令字段及时间保持nan，不能推断人工驾驶的油门/转角。自动任务未激活时planned.csv可只有表头，不生成虚构计划或圈次。只收CAN桥强制启用现有帧日志，VCU原始报文在 `zlgCAN_log/<桥时间戳>/vcu2fsd/0x501.log` 等文件中；本模式不产生硬件发送日志。自检故障/急停持续记录，CLI停止后沿原清理/落盘流程结束归档。运行目录不会被默认trackdrive任务字段重新分类。
+
+## 锥桶识别明细（2026-11-10）
+
+正常、有人跑动记录及仅传感器运行自动启用，无需GO；台架/仅构建不启动。日志跟随本次RunLog目录，pending归档时一起移动：
+
+```text
+wuta_logs/<赛项或manual_record或sensor_only>/<时间>/
+├── perception/cones/
+│   ├── camera_000001.jsonl
+│   ├── camera_3d_000001.jsonl
+│   ├── lidar_000001.jsonl
+│   ├── fused_000001.jsonl
+│   ├── map_000001.jsonl          # sensor-only没有地图输入
+│   ├── summary.json
+│   └── summary_previous_<ID>.json  # 同一运行内重启记录器时保留上次摘要
+└── fsd_modules/perception/cone_recorder.log
+```
+
+JSONL一行一个接收到的消息，包括空帧。schema=1，每行包含session_id、source、topic、message_type、frame_index、received_ns、count、原header（sec/nanosec、字符串stamp_ns、frame_id）以及原消息数组。Cone保存XYZ/颜色编号及名称/置信度；相机保存检测ID、bbox_xyxy、五色概率、置信度、position_valid、XYZ和9项位置协方差；地图保存五色分组及is_closed。纳秒时间使用十进制字符串避免浮点丢精度；非有限数值写null并列入invalid_fields。未做坐标转换或跨帧身份推断。
+
+默认队列256帧，单文件128 MiB分片，单帧序列化上限8 MiB（不超过单文件上限）；相关设置由记录器命令参数提供并写进summary，没有独立配置副本。写线程每0.5秒flush及原子更新summary。written只在flush成功后增加；flush不等于fsync，不保证突然掉电后的物理持久性。队列满增加dropped，超大/序列化失败增加failed，磁盘异常停止该记录器并留错误摘要或组件错误输出；记录异常不停止车辆链路。正常退出先停止接收、排空队列并关闭文件；被强杀/磁盘永久阻塞时，摘要可能保留running，CLI通过进程身份和摘要年龄显示异常，不能声称已经落盘结束。DDS/算法内部丢样不在本记录器计数范围内。
+
+同一目录使用文件锁防止并行记录器写入；重启使用新session_id和新分片，保留原文件及上次摘要。不自动删除旧片或历史日志，长时间采集需留足磁盘空间。summary中的file仅存文件名，归档后用当前目录解析；收发/写入/空帧/丢弃/失败计数按来源与当前记录会话统计。
+
+CLI“启动检查”新增“锥桶信息记录”，选中Enter查看每来源等待/写入/空帧/超时/错误及计数、末次时间和文件；“组件日志”选择“锥桶记录器”查看启动、写盘和退出输出。明细不逐条进入CLI主日志或无线journal；原业务日志、轨迹CSV和地图保存继续保留。
+
+离线导出CSV（无需ROS环境；输出须为新文件，空帧保留一行）：
+
+```bash
+/usr/bin/python3 tools/record_cones.py --export-csv wuta_logs/<分类>/<时间>/perception/cones --output /tmp/cones.csv
+```
+
+CSV保留session/source/采样与接收时间/坐标系及每锥桶字段，数组字段为JSON文本；数组索引只在本帧有效。损坏或未写完的JSONL行会明确报错，不能把部分导出当完整结果。不生成原始图像、点云或rosbag。

@@ -61,6 +61,7 @@ item_label() {
         base_to_zed) echo '车辆 → ZED 外参 TF' ;;
         perception) echo '感知算法组' ;;
         perception_drivers) echo 'ZED / M1 驱动组' ;;
+        cone_recorder) echo '锥桶信息记录' ;;
         visualization) echo 'FSD 可视化：fsd-visualization-code（相机 / 雷达 / 赛道 / 规划 / 控制）' ;;
         ekf) echo 'EKF 定位滤波' ;;
         localization_manager) echo '定位管理' ;;
@@ -81,6 +82,7 @@ log_path_for() {
     [[ -n "$FSD_MODULES_DIR" ]] || { echo ""; return 0; }
     case "$1" in
         perception) echo "$FSD_MODULES_DIR/perception/perception.log" ;;
+        cone_recorder) echo "$FSD_MODULES_DIR/perception/cone_recorder.log" ;;
         perception_drivers) echo "$EXTERNAL_LOG_DIR/perception_drivers.log" ;;
         ekf) echo "$FSD_MODULES_DIR/localization/ekf.log" ;;
         localization_manager) echo "$FSD_MODULES_DIR/localization/localization_manager.log" ;;
@@ -149,8 +151,8 @@ and topic configuration. --no-rviz disables it;
 --with-ins restores normal INS startup/checks; when repeated, the last switch wins.
 --no-ins also overrides mission_manager check_imu=false for this run only.
 Other device checks and GNSS/driving gates keep their configured behavior.
-An existing ZLG CAN bridge on the selected interface is verified and reused.
-Otherwise a new bridge is started via sudo. External bridges survive FSD shutdown.
+An existing ZLG CAN bridge on the selected interface is stopped before a fresh
+bridge is initialized via sudo. This run owns the new bridge and stops it on exit.
 Ctrl-C stops only processes started by this script. Logs are in wuta_logs/<mission>/<YYYYmmdd_HHMMSS>/.
 EOF
 }
@@ -291,6 +293,25 @@ sys.exit(1)
 PY
 }
 
+can_bridge_active() {
+    # A zombie has exited and released USB handles; it need not block reopening.
+    /usr/bin/python3 - <<'PY'
+import pathlib, subprocess, sys
+result = subprocess.run(['pgrep', '-x', 'zlg_can_bridge'], capture_output=True, text=True)
+if result.returncode not in (0, 1):
+    sys.exit(0)  # Fail closed if the process inventory cannot be read.
+for pid in result.stdout.split():
+    try:
+        if pathlib.Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[0] != 'Z':
+            sys.exit(0)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+
 check_existing_can() {
     /usr/bin/python3 - "$CAN_IFACE" <<'PY'
 import json
@@ -373,11 +394,8 @@ check_prerequisites() {
     }
     report_ok 'ZLG USB 设备已检测到'
     local bridge_pid
-    if [[ "$MANUAL_RECORD" == 1 ]] && pgrep -x zlg_can_bridge >/dev/null; then
-        fail "人工驾驶记录禁止复用外部CAN桥；请先停止已有桥，避免双向发送"
-    fi
     if bridge_pid="$(can_bridge_pid)"; then
-        report_ok "检测到旧 ZLG CAN 桥：$CAN_IFACE（PID=$bridge_pid）；启动时验证接口并复用，退出 FSD 时保留该桥"
+        report_ok "检测到旧 ZLG CAN 桥：$CAN_IFACE（PID=$bridge_pid）；启动时先终止旧桥，再初始化本次新桥"
     elif pgrep -x zlg_can_bridge >/dev/null; then
         fail "已有 ZLG CAN 桥使用其他接口或存在重复实例，请检查桥参数与 CAN_IFACE=$CAN_IFACE"
     fi
@@ -536,6 +554,10 @@ cleanup() {
         done
         sleep 0.7
     fi
+    # Drain the cone journal while the run path is still stable, before archival.
+    if [[ -n "${CONE_RECORDER_PID:-}" ]]; then
+        OBSERVER_PIDS+=("$CONE_RECORDER_PID")
+    fi
     # Observers share shutdown only; their failures never gate vehicle runtime.
     for pid in "${OBSERVER_PIDS[@]}"; do
         CHILD_PIDS+=("$pid")
@@ -587,6 +609,10 @@ report_child_failure() {
 }
 
 check_children() {
+    if [[ -n "${CONE_RECORDER_PID:-}" && "${CONE_RECORDER_WARNED:-0}" == 0 ]] && ! kill -0 "$CONE_RECORDER_PID" 2>/dev/null; then
+        echo '[警告] 锥桶记录器退出；车辆运行继续，请查看组件日志 cone_recorder.log' >&2
+        CONE_RECORDER_WARNED=1
+    fi
     local observer
     for observer in "${OBSERVER_PIDS[@]}"; do
         if ! kill -0 "$observer" 2>/dev/null && [[ "${OBSERVER_WARNED:-0}" == 0 ]]; then
@@ -690,27 +716,24 @@ fi
 
 reconnect_can_bridge() {
     local bridge_pid expected attempt
-    if [[ "$MANUAL_RECORD" == 1 ]] && pgrep -x zlg_can_bridge >/dev/null; then
-        fail "人工驾驶记录禁止复用外部CAN桥；请先停止已有桥，避免双向发送"
-    fi
     if bridge_pid="$(can_bridge_pid)"; then
-        if tr "\0" "\n" < "/proc/$bridge_pid/cmdline" | grep -Fxq -- --receive-only; then
-            fail "正常/台架模式不能复用只收CAN桥；请先停止该桥" zlg_can
-        fi
         expected="$(proc_start_time "$bridge_pid")"
         [[ -n "$expected" ]] || fail '已有 CAN 桥在检查时退出，未打开第二个设备实例' zlg_can
-        check_existing_can || fail "已有 CAN 桥的 $CAN_IFACE 接口未就绪，保留外部进程" zlg_can
-        [[ "$(proc_start_time "$bridge_pid")" == "$expected" ]] || fail '已有 CAN 桥在检查时退出，未打开第二个设备实例' zlg_can
-        # External bridge is deliberately not registered in CHILD_PIDS:
-        # FSD shutdown must not stop a bridge owned by another terminal.
-        printf '[复用] 外部 CAN 桥：PID=%s，接口=%s；退出 FSD 时保留该桥。报文日志由外部桥配置决定。\n' \
-            "$bridge_pid" "$CAN_IFACE" > "$ZLG_LOG_DIR/bridge.log"
-        report_ok "已复用外部 CAN 桥：$CAN_IFACE（PID=$bridge_pid）；接口已就绪，收报请查看独立桥终端或 candump $CAN_IFACE"
-        return
+        echo "[重连] 终止旧 CAN 桥：PID=$bridge_pid，接口=$CAN_IFACE"
+        sudo -n /usr/bin/python3 "$ROOT/tools/run_privileged_group.py" \
+            --stop-bridge "$bridge_pid" "$expected" "$CAN_IFACE" || \
+            fail '旧 CAN 桥未确认退出，拒绝打开第二个设备实例' zlg_can
+        # A zombie has already released its device; let its owner reap it.
+        for ((attempt=0; attempt<20; attempt++)); do
+            [[ "$(proc_start_time "$bridge_pid")" == "$expected" ]] || break
+            [[ "$(awk '{print $3}' "/proc/$bridge_pid/stat" 2>/dev/null || true)" != Z ]] || break
+            sleep 0.1
+        done
+        report_ok '旧 CAN 桥已退出；本次重新打开 USB 设备和通道'
     fi
     # Never open the same USB device twice; also catch changes since prerequisites.
-    if pgrep -x zlg_can_bridge >/dev/null; then
-        fail '仍有 ZLG CAN 桥进程，无法独占设备并重连'
+    if can_bridge_active; then
+        fail '仍有活动 ZLG CAN 桥进程，无法独占设备并重连'
     fi
     local bridge_args=()
     [[ "$MANUAL_RECORD" == 0 ]] || bridge_args=(--receive-only --log-frames=on)
@@ -720,7 +743,7 @@ reconnect_can_bridge() {
         check_children
         if grep -Fq '[main] 就绪:' "$ZLG_LOG_DIR/bridge.log"; then
             check_existing_can || fail "CAN 桥初始化完成，但 $CAN_IFACE 接口未就绪" zlg_can
-            report_ok "CAN 盒已重新打开并初始化：$CAN_IFACE；VCU 收报情况请查看 $ZLG_LOG_DIR/bridge.log"
+            report_ok "CAN 盒已重新打开并初始化：$CAN_IFACE；USB身份和驱动初始化通过，物理送达需由VCU确认；日志 $ZLG_LOG_DIR/bridge.log"
             return
         fi
         sleep 0.1
@@ -728,8 +751,23 @@ reconnect_can_bridge() {
     fail 'CAN 桥 30 秒内未完成设备初始化；接口存在不代表 CAN 盒已连接' zlg_can
 }
 
+start_cone_recorder() {
+    local log_file
+    log_file="$(log_path_for cone_recorder)"
+    if ! mkdir -p "$(dirname "$log_file")"; then
+        echo '[警告] 锥桶记录日志目录不可写；车辆运行继续' >&2
+        return 0
+    fi
+    local args=(--run-dir "$RUN_DIR" --manifest "$RUN_DIR/configs/module_config_manifest.json")
+    [[ "$SENSOR_ONLY" == 0 ]] || args+=(--sensor-only)
+    setsid /usr/bin/python3 "$ROOT/tools/record_cones.py" "${args[@]}" > "$log_file" 2>&1 &
+    CONE_RECORDER_PID=$!
+    echo "[记录] 锥桶记录器已提交（PID=$CONE_RECORDER_PID）；实际写入状态见CLI启动检查，日志：$log_file"
+}
+
 reconnect_can_bridge
 if [[ "$BRAKE_BENCH" == 0 ]]; then
+    start_cone_recorder
     if [[ "$DISABLE_INS" == 1 ]]; then
         echo '[跳过] 惯导已禁用：不启动或复用华测驱动，不等待惯导数据（--with-ins恢复）'
         echo '[警告] 无惯导时定位可能无输出；本次跳过IMU自检，其他设备检查、GNSS和发车门控仍有效'

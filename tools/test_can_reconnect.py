@@ -7,8 +7,7 @@ import unittest
 
 
 SOURCE = (Path(__file__).resolve().parents[1] / 'start_full_fsd.sh').read_text()
-RECONNECT = SOURCE.split('reconnect_can_bridge() {', 1)[1].split(
-    '\n}\n\nreconnect_can_bridge', 1)[0]
+RECONNECT = SOURCE.split('reconnect_can_bridge() {', 1)[1].split('\n}\n', 1)[0]
 RECONNECT = 'reconnect_can_bridge() {' + RECONNECT + '\n}\n'
 
 
@@ -31,9 +30,11 @@ sleep() { :; }
 sudo() {
     echo "SUDO $*" >> events
     [[ "$KILL_ERROR" == 0 ]] || return 1
-    if [[ "$*" == *-KILL* || "$STUCK" == 0 ]]; then rm -f running; fi
+    [[ "$STUCK" == 0 ]] || return 1
+    rm -f running
 }
 pgrep() { [[ -f running || "$FOREIGN" == 1 ]]; }
+can_bridge_active() { pgrep; }
 start_group() {
     echo "START $*" >> events
     : > "$ZLG_LOG_DIR/bridge.log"
@@ -57,24 +58,33 @@ check_existing_can() { [[ "$VALID" == 1 ]]; }
         self.assertEqual(code, 0, events)
         self.assertIn('--receive-only --log-frames=on', events)
 
-    def test_manual_record_rejects_external_bridge_without_stopping_it(self):
+    def test_manual_record_replaces_old_bridge_with_receive_only_bridge(self):
         code, events = self.run_reconnect(manual=True, old=True)
-        self.assertNotEqual(code, 0)
-        self.assertIn('禁止复用', events)
-        self.assertNotIn('SUDO', events)
-        self.assertNotIn('START', events)
+        self.assertEqual(code, 0, events)
+        self.assertIn('--stop-bridge 12345 100 can0', events)
+        self.assertIn('--receive-only --log-frames=on', events)
 
-    def test_external_bridge_reused_without_shutdown_or_second_open(self):
+    def test_old_bridge_stopped_before_fresh_initialization(self):
         code, events = self.run_reconnect(old=True)
         self.assertEqual(code, 0, events)
-        self.assertNotIn('SUDO', events)
-        self.assertNotIn('START', events)
-        self.assertIn('已复用外部 CAN 桥', events)
+        self.assertIn('--stop-bridge 12345 100 can0', events)
+        self.assertLess(events.index('SUDO'), events.index('START'))
+        self.assertIn('CAN 盒已重新打开并初始化', events)
 
-    def test_invalid_external_interface_blocks_reuse(self):
+    def test_unready_old_interface_does_not_skip_reinitialization(self):
         code, events = self.run_reconnect(old=True, valid=False)
         self.assertNotEqual(code, 0)
-        self.assertNotIn('SUDO', events)
+        self.assertIn('SUDO', events)
+        self.assertIn('START', events)
+
+    def test_failed_shutdown_does_not_open_second_device(self):
+        code, events = self.run_reconnect(old=True, kill_error=True)
+        self.assertNotEqual(code, 0)
+        self.assertNotIn('START', events)
+
+    def test_stuck_bridge_does_not_open_second_device(self):
+        code, events = self.run_reconnect(old=True, stuck=True)
+        self.assertNotEqual(code, 0)
         self.assertNotIn('START', events)
 
     def test_first_start_still_initializes(self):

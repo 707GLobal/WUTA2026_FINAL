@@ -8,7 +8,9 @@ test_maps/<运行目录名>_<采集时间>_<唯一编号>/
 ├── observations.jsonl       # 增量原始观察记录，可恢复/回放
 ├── map.svg                  # 最近一个已导出任务的地图，浏览器直接打开
 ├── segment_001.svg          # 各任务分段的完整地图
-└── segment_001.json         # 样本数量、缺失输入等状态
+├── segment_001.json         # 样本数量、缺失输入等状态
+├── curves.png / curves.svg  # 最近任务的速度、航向随时间变化曲线
+└── segment_001_curves.png / segment_001_curves.svg # 各任务的曲线
 ```
 
 蓝色点线是当前最终路径，灰色为历史路径版本，黄色为标准定位轨迹，紫色为原始惯导轨迹，红点为最新标准定位位置。图中 X/Y 单位为米，等比例显示；断流、时间回退和定位跳变会断开实际轨迹连线。路径版本之间不连线，不推测正式圈数。
@@ -24,6 +26,14 @@ bash fsd-visualization-code/review.sh --replay /绝对路径/observations.jsonl 
 
 原有 CSV 仍在 `wuta_logs/<赛项>/<运行时间>/trajectory/`，未移动或更改。已安装的 ROS/FSD 消息环境仍是采集/回放命令的依赖。RViz 原有坐标系和视角不变。本目录的测试数据子目录不提交 Git。
 
+
+## 速度与方向曲线（2026-11-11）
+
+FINISH或急停后，观察器继续收集滑行数据，待既有停稳观察完成或断流超时后自动导出PNG/SVG；切换任务或采集器正常退出时也导出已收到的数据。直接打开`curves.png`查看，分段文件长期保留。曲线不自动弹出窗口，不改变RViz相机或驾驶行为。
+
+横轴为任务开始后的秒数；上图是`/chcnav/velocity`水平速度模长（m/s），下图是`/chcnav/odometry`四元数计算的车体航向（度，原消息header帧，通常odom，逆时针为正），不是方向盘/前轮转角。航向在连续段内解缠，可跨越±180°及多圈；超过track_gap的断流、时间回退/重复和坐标帧变化均断开曲线。两路按各自源时间绘图，不插值或平滑。图标题标明结束原因；缺失输入标明无样本，断流不视为停稳。
+
+绘图依赖`python3-matplotlib`；`review.sh`使用系统Python并禁用用户site-packages，避免用户NumPy与系统ROS/Matplotlib二进制冲突。绘图异常记入status/journal的curve_export_failed警告，地图与原始记录继续保存。`--replay ... --export-only`也会恢复曲线；旧JSONL能恢复已记录速度，但没有航向数据时会明确标注缺失，不反推航向。2026-11-11起新增航向记录。
 
 ## 已知限制（2026-11-05核对）
 

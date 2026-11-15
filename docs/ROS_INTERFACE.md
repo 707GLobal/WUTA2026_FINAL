@@ -1,5 +1,11 @@
 # 当前核心 ROS 与 CAN 接口
 
+## 跑动曲线观察记录（2026-11-11）
+
+不增加ROS话题或订阅。现有mission_review复用`/chcnav/velocity`的水平速度模长及`/chcnav/odometry`的车体四元数航向（yaw，header坐标帧下，左转为正），在recording/draining阶段保留所有收到的有效样本和源时间。观察JSONL schema 3新增`heading`事件（stamp/yaw_rad/frame），已有`speed`事件可恢复绘图，兼容schema 1/2；旧记录缺失航向不从位置伪造。
+
+FINISH/急停后继续采集至现有观察器停稳/断流收尾，导出`curves.{png,svg}`和`segment_NNN_curves.{png,svg}`；时间轴从任务开始计秒，航向按连续段解缠，断流超过track_gap、时间回退/重复或航向坐标帧变化时断线。图中保留结束原因，断流未确认不标为停车成功。原Marker/状态话题QoS不变，status新增speed_samples/heading_samples；绘图失败写入warning，不阻断已有地图和JSONL采集。
+
 ## 测试路径地图增量接口（2026-11-05）
 
 现有fsd_mission_review新增订阅`/localization/pose`（geometry_msgs/PoseStamped，Reliable/Volatile/depth1000），其他驾驶话题/生产者保持不变。观察历史schema 2增加pose和plan_invalidated事件，schema 1仍可回放。标准pose和原始惯导独立保存，不以任何一路替代另一条权威定位出口。
@@ -341,10 +347,24 @@ Best Effort发布者不能满足这些Reliable订阅，仿真输入也须配套�
 
 节点fsd_mission_review订阅/localization/pose（geometry_msgs/PoseStamped）、/chcnav/odometry（nav_msgs/Odometry）、/chcnav/velocity（geometry_msgs/TwistStamped）、/planning/final_waypoints（autoware_msgs/Lane）、/control/target_viz（visualization_msgs/MarkerArray，仅pp_target ADD）、/system/mission_state（wuta_msgs/MissionState）；均Reliable/Volatile/depth1000，保留现有发送端契约。/system/emergency订阅Reliable/Transient Local/depth1。发送端和控制消息不修改；目标Marker由现有控制器在有订阅者时生成，因此须在GO之前启动采集。对位姿仅使用采样时间TF→map，不生成TF或第二份标准pose。
 
-输出/mission_review/{actual,planned,planned_history,localization,current,targets,label}均为visualization_msgs/MarkerArray，/mission_review/status为std_msgs/String，统一Reliable/Transient Local/depth1。每次几何快照自带DELETEALL和完整ADD集合，帧为map，时间零供离线历史图层使用。status包含segment、phase、reason、样本数量、规划版本数、warnings、max_observed_gap_s、pending_transforms。结束条件仅标记复盘状态；frozen不代表任务机FINISH，replay无实车数据订阅。当前JSONL schema=2，兼容schema 1回放；数据保存于工作空间test_maps独占采集目录，来源运行目录仅保留采集日志和ready指针，不变更已有轨迹CSV。旧Lane与待TF目标点的已知时序问题见[test_maps限制说明](../test_maps/README.md#已知限制2026-11-05核对)。
+输出/mission_review/{actual,planned,planned_history,localization,current,targets,label}均为visualization_msgs/MarkerArray，/mission_review/status为std_msgs/String，统一Reliable/Transient Local/depth1。每次几何快照自带DELETEALL和完整ADD集合，帧为map，时间零供离线历史图层使用。status包含segment、phase、reason、样本数量、规划版本数、warnings、max_observed_gap_s、pending_transforms。结束条件仅标记复盘状态；frozen不代表任务机FINISH，replay无实车数据订阅。当前JSONL schema=3，兼容schema 1/2回放，新增heading记录及speed/heading样本计数见本文“跑动曲线观察记录”；数据保存于工作空间test_maps独占采集目录，来源运行目录仅保留采集日志和ready指针，不变更已有轨迹CSV。旧Lane与待TF目标点的已知时序问题见[test_maps限制说明](../test_maps/README.md#已知限制2026-11-05核对)。
 
 ## 台架制动前微驱动（2026-11-01，覆盖旧无正驱动约束）
 
 现有`/control/brake_bench/target`（std_msgs/UInt8）扩展值3=仅VCU制动前微驱动；值1=仅VCU负制动，0/停用的2/未知值保持中性。`/control/command`的消息定义、QoS与正驱动/负制动约定不变，台架speed=0/angle=0，throttle_brake前delay_sec阶段为pre_drive_opening，随后hold_sec为-opening，结束为0。控制器与CAN共用小正开度范围0～0.05，控制器拒绝非法参数，CAN仅目标3限幅允许正值；目标1遇正值归中性。路由切换先清缓存，新Command到达前可出现保护性中性帧。
 
 默认GO→5%微驱动5秒→50%制动10秒→中性/mission_complete→FINISH；0.0参数恢复原中性等待。Signal1大端5%=86 65、中性7F FF、50%制动3F FF。所有原任务新鲜度/自检/RES/有限值门控不放宽；无正转向、无0x000/0x603直接电机发送。原正常驾驶协议与MissionState所有权不变。
+
+## 锥桶只读日志接口（2026-11-10）
+
+`tools/record_cones.py`仅订阅现有 `wuta_msgs/CameraConeDetectionArray`（相机/三维适配）、`wuta_msgs/ConeArray`（雷达/融合）、`wuta_msgs/ConeMap`（权威地图），Reliable/Volatile/KeepLast(10)，没有新增业务话题或消息定义。四个感知话题从本次模块配置快照解析，地图沿固定 `/mapping/cone_map`；sensor-only省略地图，台架不启动记录器。
+
+日志逐帧保留原header.stamp及frame_id、全部锥桶字段和本机接收时间。位置仍属消息声明坐标系，未额外计算map/base_link坐标；位置有效性标志、颜色概率和协方差照原值保存。ConeArray数组序号与相机detection_id不代表跨帧身份，消息没有的跟踪ID、点数/尺寸、融合关联理由不补造。map快照保存原分组及is_closed，不替代建图内部轨迹或已确认地图YAML。非有限数值以JSON null及invalid_fields路径表示，不改写为有效数据。
+
+不订阅原始点云/图像，也不增加驾驶Command、任务状态、GO、圈次、TF或地图发布者。记录计数仅覆盖此消费者收到的消息，不能推断算法处理前覆盖率或DDS传输零丢样；CLI记录状态不是识别质量或发车结论。
+
+### CAN传输生命周期补充（2026-11-11）
+
+根入口每次停止同接口唯一旧ZLG桥后重新初始化，不复用旧句柄。桥检测USB连接身份变化或驱动错误后退出，清理原模式会话；仅新桥收到的新模式可写入新会话，不恢复旧GO。ROS消息、can_ok自检来源、0x210编码及0x301/DLC1/50ms均未改变。发送日志/驱动队列计数不表示VCU应用已收到。按用户要求未验证。
+
+2026-11-11临时覆盖（按用户要求）：zlgcan_bridge/zlg_bridge.h中ZLG_RUNTIME_HEALTH_CHECKS=0，暂停运行时USB身份检查、驱动错误队列读取及发送前USB身份检查；原检查实现保留，将宏改回1可恢复。启动时独占/USB身份绑定、预复位后的USB存在检查、配置与StartCAN结果、驱动收发接口直接失败及进程监管仍保留。未构建、未验证、未重启当前进程；下一次启动编译后生效。
